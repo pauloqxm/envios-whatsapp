@@ -19,7 +19,8 @@ st.set_page_config(
 
 API_URL = "https://wasenderapi.com/api/send-message"
 API_TOKEN = os.getenv("WASENDER_API_TOKEN", "") or st.secrets.get("WASENDER_API_TOKEN", "")
-HISTORICO_ARQUIVO = "historico_envios.json"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+HISTORICO_ARQUIVO = os.path.join(BASE_DIR, "historico_envios.json")
 if ZoneInfo is not None:
     BRASILIA_TZ = ZoneInfo("America/Sao_Paulo")
 else:
@@ -214,123 +215,8 @@ status_texto = status_numero_texto(numero_formatado)
 status_ok = validar_numero_br(numero_formatado)
 historico_envios = carregar_historico()
 
-st.markdown("""
-<style>
-    .main {
-        background: linear-gradient(180deg, #0f1117 0%, #151924 100%);
-    }
-
-    .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-        max-width: 900px;
-    }
-
-    .hero-box {
-        background: linear-gradient(135deg, #16a34a 0%, #0f172a 100%);
-        padding: 28px;
-        border-radius: 24px;
-        color: white;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-        margin-bottom: 20px;
-        border: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .hero-title {
-        font-size: 32px;
-        font-weight: 800;
-        margin-bottom: 8px;
-        line-height: 1.1;
-    }
-
-    .hero-subtitle {
-        font-size: 15px;
-        color: rgba(255,255,255,0.85);
-    }
-
-    .section-card {
-        background: #111827;
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 22px;
-        padding: 22px;
-        margin-bottom: 18px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-    }
-
-    .section-title {
-        font-size: 20px;
-        font-weight: 700;
-        margin-bottom: 16px;
-        color: #f9fafb;
-    }
-
-    .mini-card {
-        background: #0b1220;
-        border: 1px solid rgba(255,255,255,0.07);
-        border-radius: 18px;
-        padding: 16px;
-        text-align: center;
-        height: 100%;
-    }
-
-    .mini-label {
-        font-size: 13px;
-        color: #9ca3af;
-        margin-bottom: 6px;
-    }
-
-    .mini-value {
-        font-size: 16px;
-        font-weight: 700;
-        color: #f9fafb;
-        word-break: break-word;
-    }
-
-    .status-ok {
-        color: #22c55e;
-        font-weight: 700;
-    }
-
-    .status-bad {
-        color: #f59e0b;
-        font-weight: 700;
-    }
-
-    .preview-box {
-        background: #0b1220;
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 18px;
-        padding: 18px;
-        min-height: 170px;
-        white-space: pre-wrap;
-        color: #f3f4f6;
-        font-size: 15px;
-        line-height: 1.6;
-    }
-
-    div[data-baseweb="input"] > div,
-    div[data-baseweb="textarea"] > div,
-    div[data-baseweb="select"] > div {
-        border-radius: 14px !important;
-    }
-
-    .stButton > button {
-        border-radius: 14px !important;
-        font-weight: 700 !important;
-        padding: 0.7rem 1rem !important;
-        border: none !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<div class="hero-box">
-    <div class="hero-title">📲 Envio de WhatsApp</div>
-    <div class="hero-subtitle">
-        Digite o nome, o telefone e escolha uma mensagem pronta ou escreva manualmente.
-    </div>
-</div>
-""", unsafe_allow_html=True)
+st.title("📲 Envio de WhatsApp")
+st.caption("Digite o nome, o telefone e escolha uma mensagem pronta ou escreva manualmente.")
 
 if st.session_state.notificacao_envio:
     notif = st.session_state.notificacao_envio
@@ -342,8 +228,7 @@ if st.session_state.notificacao_envio:
         st.warning(notif.get("mensagem", "Envio concluído com observações."))
     st.session_state.notificacao_envio = None
 
-st.markdown('<div class="section-card">', unsafe_allow_html=True)
-st.markdown('<div class="section-title">Dados do envio</div>', unsafe_allow_html=True)
+st.markdown("### Dados do envio")
 
 st.text_input(
     "Nome",
@@ -371,31 +256,15 @@ st.text_area(
     height=220
 )
 
-st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown('<div class="section-card">', unsafe_allow_html=True)
-st.markdown('<div class="section-title">Prévia do envio</div>', unsafe_allow_html=True)
+st.markdown("### Prévia do envio")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown(f"""
-    <div class="mini-card">
-        <div class="mini-label">Número formatado</div>
-        <div class="mini-value">{numero_formatado if numero_formatado else "Não informado"}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.metric("Número formatado", numero_formatado if numero_formatado else "Não informado")
 
 with col2:
-    classe_status = "status-ok" if status_ok else "status-bad"
-    st.markdown(f"""
-    <div class="mini-card">
-        <div class="mini-label">Status</div>
-        <div class="mini-value {classe_status}">{status_texto}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+    st.metric("Status", status_texto)
 
 preview_segura = mensagem_final if mensagem_final else "A mensagem aparecerá aqui."
 st.text_area(
@@ -404,8 +273,6 @@ st.text_area(
     height=190,
     disabled=True
 )
-
-st.markdown('</div>', unsafe_allow_html=True)
 
 col_btn1, col_btn2 = st.columns(2)
 
@@ -473,12 +340,10 @@ if enviar:
             except RuntimeError as e:
                 st.error(str(e))
 
-st.markdown('<div class="section-card">', unsafe_allow_html=True)
-
 col_hist_1, col_hist_2 = st.columns([3, 1])
 
 with col_hist_1:
-    st.markdown('<div class="section-title">Histórico de envios</div>', unsafe_allow_html=True)
+    st.markdown("### Histórico de envios")
 
 with col_hist_2:
     if st.button("🗑️ Limpar histórico", use_container_width=True):
@@ -502,5 +367,3 @@ if historico_envios:
     )
 else:
     st.info("Ainda não há envios registrados.")
-
-st.markdown('</div>', unsafe_allow_html=True)
