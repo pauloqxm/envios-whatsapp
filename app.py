@@ -70,6 +70,12 @@ if "mensagem_base" not in st.session_state:
 if "mensagem_escolhida" not in st.session_state:
     st.session_state.mensagem_escolhida = "Selecione uma mensagem pronta"
 
+if "limpar_apos_envio_ok" not in st.session_state:
+    st.session_state.limpar_apos_envio_ok = False
+
+if "notificacao_envio" not in st.session_state:
+    st.session_state.notificacao_envio = None
+
 
 def agora_formatado():
     return datetime.now(BRASILIA_TZ).strftime("%d/%m/%Y %H:%M:%S")
@@ -198,6 +204,10 @@ def limpar_historico():
         return False
 
 
+if st.session_state.limpar_apos_envio_ok:
+    limpar_campos()
+    st.session_state.limpar_apos_envio_ok = False
+
 numero_formatado = normalizar_numero_br(st.session_state.numero)
 mensagem_final = montar_mensagem(st.session_state.nome, st.session_state.mensagem_base)
 status_texto = status_numero_texto(numero_formatado)
@@ -322,6 +332,16 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+if st.session_state.notificacao_envio:
+    notif = st.session_state.notificacao_envio
+    if notif.get("tipo") == "success":
+        st.success(notif.get("mensagem", "Mensagem enviada com sucesso."))
+    elif notif.get("tipo") == "info":
+        st.info(notif.get("mensagem", "Envio concluído."))
+    elif notif.get("tipo") == "warning":
+        st.warning(notif.get("mensagem", "Envio concluído com observações."))
+    st.session_state.notificacao_envio = None
+
 st.markdown('<div class="section-card">', unsafe_allow_html=True)
 st.markdown('<div class="section-title">Dados do envio</div>', unsafe_allow_html=True)
 
@@ -393,11 +413,7 @@ with col_btn1:
     enviar = st.button("🚀 Enviar mensagem", use_container_width=True)
 
 with col_btn2:
-    limpar = st.button("🧹 Limpar campos", use_container_width=True)
-
-if limpar:
-    limpar_campos()
-    st.rerun()
+    st.button("🧹 Limpar campos", use_container_width=True, on_click=limpar_campos)
 
 if enviar:
     if not st.session_state.nome.strip():
@@ -427,16 +443,19 @@ if enviar:
                         status_api=status_api
                     )
 
-                    st.success(f"Mensagem enviada com sucesso para {numero_formatado}.")
-
                     if status_api == "in_progress":
-                        st.info("Status atual: mensagem em processamento/envio.")
+                        status_msg = "Status atual: mensagem em processamento/envio."
                     elif status_api == "sent":
-                        st.success("Status atual: mensagem enviada.")
+                        status_msg = "Status atual: mensagem enviada."
                     else:
-                        st.info(f"Status atual: {status_api}")
+                        status_msg = f"Status atual: {status_api}"
 
-                    historico_envios = carregar_historico()
+                    st.session_state.notificacao_envio = {
+                        "tipo": "success",
+                        "mensagem": f"Mensagem enviada com sucesso para {numero_formatado}. {status_msg}"
+                    }
+                    st.session_state.limpar_apos_envio_ok = True
+                    st.rerun()
 
                 else:
                     msg_api = (
