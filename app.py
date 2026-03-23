@@ -9,10 +9,7 @@ st.set_page_config(
 )
 
 API_URL = "https://wasenderapi.com/api/send-message"
-
-# TOKEN DIRETO (uso local)
 API_TOKEN = "70f1099889818e905a405f586bf151aef6a6706c5ca531ccf81030e607de37e6"
-
 
 if "nome" not in st.session_state:
     st.session_state.nome = ""
@@ -51,8 +48,7 @@ def normalizar_numero_br(numero: str) -> str:
 
 
 def validar_numero_br(numero_formatado: str) -> bool:
-    padrao = r"^\+55\d{10,11}$"
-    return bool(re.match(padrao, numero_formatado))
+    return bool(re.match(r"^\+55\d{10,11}$", numero_formatado))
 
 
 def montar_mensagem(nome: str, mensagem_base: str) -> str:
@@ -60,7 +56,7 @@ def montar_mensagem(nome: str, mensagem_base: str) -> str:
     mensagem_base = mensagem_base.strip()
 
     if nome and mensagem_base:
-        return f"Olá, {nome}. {mensagem_base}"
+        return f"Olá, {nome}.\n\n{mensagem_base}"
 
     return mensagem_base
 
@@ -80,71 +76,228 @@ def enviar_mensagem(numero_destino: str, texto: str):
     return response
 
 
-st.title("📲 Envio de WhatsApp")
-st.write("Envie mensagens para números do Brasil automaticamente com +55.")
+def status_numero_texto(numero_formatado: str) -> str:
+    if not numero_formatado:
+        return "Aguardando preenchimento"
+    if validar_numero_br(numero_formatado):
+        return "Número válido"
+    return "Número inválido"
 
-nome = st.text_input("Nome", key="nome", placeholder="Ex: João")
 
-numero_digitado = st.text_input(
+numero_formatado = normalizar_numero_br(st.session_state.numero)
+mensagem_final = montar_mensagem(st.session_state.nome, st.session_state.mensagem_base)
+status_texto = status_numero_texto(numero_formatado)
+status_ok = validar_numero_br(numero_formatado)
+
+st.markdown("""
+<style>
+    .main {
+        background: linear-gradient(180deg, #0f1117 0%, #151924 100%);
+    }
+
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        max-width: 820px;
+    }
+
+    .hero-box {
+        background: linear-gradient(135deg, #1d4ed8 0%, #0f172a 100%);
+        padding: 28px;
+        border-radius: 24px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+        margin-bottom: 20px;
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .hero-title {
+        font-size: 32px;
+        font-weight: 800;
+        margin-bottom: 8px;
+        line-height: 1.1;
+    }
+
+    .hero-subtitle {
+        font-size: 15px;
+        color: rgba(255,255,255,0.85);
+    }
+
+    .section-card {
+        background: #111827;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 22px;
+        padding: 22px;
+        margin-bottom: 18px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    }
+
+    .section-title {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 16px;
+        color: #f9fafb;
+    }
+
+    .mini-card {
+        background: #0b1220;
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 18px;
+        padding: 16px;
+        text-align: center;
+        height: 100%;
+    }
+
+    .mini-label {
+        font-size: 13px;
+        color: #9ca3af;
+        margin-bottom: 6px;
+    }
+
+    .mini-value {
+        font-size: 16px;
+        font-weight: 700;
+        color: #f9fafb;
+        word-break: break-word;
+    }
+
+    .status-ok {
+        color: #22c55e;
+        font-weight: 700;
+    }
+
+    .status-bad {
+        color: #f59e0b;
+        font-weight: 700;
+    }
+
+    .preview-box {
+        background: #0b1220;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 18px;
+        padding: 18px;
+        min-height: 170px;
+        white-space: pre-wrap;
+        color: #f3f4f6;
+        font-size: 15px;
+        line-height: 1.6;
+    }
+
+    div[data-baseweb="input"] > div,
+    div[data-baseweb="textarea"] > div {
+        border-radius: 14px !important;
+    }
+
+    .stButton > button {
+        border-radius: 14px !important;
+        font-weight: 700 !important;
+        padding: 0.7rem 1rem !important;
+        border: none !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<div class="hero-box">
+    <div class="hero-title">📲 Envio de WhatsApp</div>
+    <div class="hero-subtitle">
+        Digite o nome, o telefone e a mensagem. O sistema formata automaticamente o número do Brasil com +55.
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown('<div class="section-card">', unsafe_allow_html=True)
+st.markdown('<div class="section-title">Dados do envio</div>', unsafe_allow_html=True)
+
+st.text_input(
+    "Nome",
+    key="nome",
+    placeholder="Ex: João Silva"
+)
+
+st.text_input(
     "Número do WhatsApp",
     key="numero",
     placeholder="Ex: 88 99999-9999"
 )
 
-mensagem_base = st.text_area(
+st.text_area(
     "Mensagem",
     key="mensagem_base",
-    placeholder="Digite sua mensagem...",
+    placeholder="Digite sua mensagem aqui...",
     height=180
 )
 
-numero_formatado = normalizar_numero_br(numero_digitado)
-mensagem_final = montar_mensagem(nome, mensagem_base)
+st.markdown('</div>', unsafe_allow_html=True)
 
-st.subheader("Prévia")
-
-col_a, col_b = st.columns(2)
-
-with col_a:
-    st.text_input("Número formatado", value=numero_formatado, disabled=True)
-
-with col_b:
-    status = "Válido" if validar_numero_br(numero_formatado) else "Inválido"
-    st.text_input("Status", value=status, disabled=True)
-
-st.text_area("Mensagem final", value=mensagem_final, height=150, disabled=True)
+st.markdown('<div class="section-card">', unsafe_allow_html=True)
+st.markdown('<div class="section-title">Prévia do envio</div>', unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 
 with col1:
-    enviar = st.button("🚀 Enviar", use_container_width=True)
+    st.markdown(f"""
+    <div class="mini-card">
+        <div class="mini-label">Número formatado</div>
+        <div class="mini-value">{numero_formatado if numero_formatado else "Não informado"}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 with col2:
-    limpar = st.button("🧹 Limpar", use_container_width=True)
+    classe_status = "status-ok" if status_ok else "status-bad"
+    st.markdown(f"""
+    <div class="mini-card">
+        <div class="mini-label">Status</div>
+        <div class="mini-value {classe_status}">{status_texto}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+st.markdown(f"""
+<div class="preview-box">{mensagem_final if mensagem_final else "A mensagem aparecerá aqui."}</div>
+""", unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+col_btn1, col_btn2 = st.columns(2)
+
+with col_btn1:
+    enviar = st.button("🚀 Enviar mensagem", use_container_width=True)
+
+with col_btn2:
+    limpar = st.button("🧹 Limpar campos", use_container_width=True)
 
 if limpar:
     limpar_campos()
     st.rerun()
 
 if enviar:
-    if not nome.strip():
+    if not st.session_state.nome.strip():
         st.error("Informe o nome.")
-    elif not numero_digitado.strip():
-        st.error("Informe o número.")
-    elif not mensagem_base.strip():
+    elif not st.session_state.numero.strip():
+        st.error("Informe o número do WhatsApp.")
+    elif not st.session_state.mensagem_base.strip():
         st.error("Digite a mensagem.")
     elif not numero_formatado or not validar_numero_br(numero_formatado):
-        st.error("Número inválido.")
+        st.error("Número inválido. Digite um telefone brasileiro com DDD.")
     else:
-        with st.spinner("Enviando..."):
+        with st.spinner("Enviando mensagem..."):
             try:
                 resposta = enviar_mensagem(numero_formatado, mensagem_final)
 
                 if resposta.status_code in (200, 201):
-                    st.success(f"Mensagem enviada para {numero_formatado}")
+                    st.success(f"Mensagem enviada com sucesso para {numero_formatado}.")
+                    try:
+                        st.json(resposta.json())
+                    except Exception:
+                        st.write(resposta.text)
                 else:
-                    st.error(f"Erro: {resposta.status_code}")
-                    st.write(resposta.text)
+                    st.error(f"Erro ao enviar. Status: {resposta.status_code}")
+                    try:
+                        st.json(resposta.json())
+                    except Exception:
+                        st.write(resposta.text)
 
-            except Exception as e:
+            except requests.exceptions.RequestException as e:
                 st.error(f"Erro de conexão: {e}")
