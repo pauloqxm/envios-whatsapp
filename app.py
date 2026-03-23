@@ -215,10 +215,111 @@ status_texto = status_numero_texto(numero_formatado)
 status_ok = validar_numero_br(numero_formatado)
 historico_envios = carregar_historico()
 
-st.title("📲 Envio de WhatsApp")
-with st.container(border=True):
-    st.subheader("Comunicação rápida e organizada")
-    st.caption("Digite o nome, o telefone e escolha uma mensagem pronta ou escreva manualmente.")
+st.markdown("""
+<style>
+    .main {
+        background: linear-gradient(180deg, #0f1117 0%, #151924 100%);
+    }
+
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        max-width: 900px;
+    }
+
+    .hero-box {
+        background: linear-gradient(135deg, #16a34a 0%, #0f172a 100%);
+        padding: 28px;
+        border-radius: 24px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+        margin-bottom: 20px;
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .hero-title {
+        font-size: 32px;
+        font-weight: 800;
+        margin-bottom: 8px;
+        line-height: 1.1;
+    }
+
+    .hero-subtitle {
+        font-size: 15px;
+        color: rgba(255,255,255,0.85);
+    }
+
+    .section-card {
+        background: #111827;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 22px;
+        padding: 22px;
+        margin-bottom: 18px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    }
+
+    .section-title {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 16px;
+        color: #f9fafb;
+    }
+
+    .mini-card {
+        background: #0b1220;
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 18px;
+        padding: 16px;
+        text-align: center;
+        height: 100%;
+    }
+
+    .mini-label {
+        font-size: 13px;
+        color: #9ca3af;
+        margin-bottom: 6px;
+    }
+
+    .mini-value {
+        font-size: 16px;
+        font-weight: 700;
+        color: #f9fafb;
+        word-break: break-word;
+    }
+
+    .status-ok {
+        color: #22c55e;
+        font-weight: 700;
+    }
+
+    .status-bad {
+        color: #f59e0b;
+        font-weight: 700;
+    }
+
+    div[data-baseweb="input"] > div,
+    div[data-baseweb="textarea"] > div,
+    div[data-baseweb="select"] > div {
+        border-radius: 14px !important;
+    }
+
+    .stButton > button {
+        border-radius: 14px !important;
+        font-weight: 700 !important;
+        padding: 0.7rem 1rem !important;
+        border: none !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<div class="hero-box">
+    <div class="hero-title">📲 Envio de WhatsApp</div>
+    <div class="hero-subtitle">
+        Digite o nome, o telefone e escolha uma mensagem pronta ou escreva manualmente.
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 if st.session_state.notificacao_envio:
     notif = st.session_state.notificacao_envio
@@ -230,58 +331,72 @@ if st.session_state.notificacao_envio:
         st.warning(notif.get("mensagem", "Envio concluído com observações."))
     st.session_state.notificacao_envio = None
 
-with st.container(border=True):
-    st.markdown("### Dados do envio")
+st.markdown('<div class="section-card">', unsafe_allow_html=True)
+st.markdown('<div class="section-title">Dados do envio</div>', unsafe_allow_html=True)
 
-    st.text_input(
-        "Nome",
-        key="nome",
-        placeholder="Ex: João Silva"
-    )
+st.text_input(
+    "Nome",
+    key="nome",
+    placeholder="Ex: João Silva"
+)
 
-    st.text_input(
-        "Número do WhatsApp",
-        key="numero",
-        placeholder="Ex: 88 99999-9999"
-    )
+st.text_input(
+    "Número do WhatsApp",
+    key="numero",
+    placeholder="Ex: 88 99999-9999"
+)
 
-    st.selectbox(
-        "Mensagens prontas",
-        options=list(MENSAGENS_PRONTAS.keys()),
-        key="mensagem_escolhida",
-        on_change=aplicar_mensagem_pronta
-    )
+st.selectbox(
+    "Mensagens prontas",
+    options=list(MENSAGENS_PRONTAS.keys()),
+    key="mensagem_escolhida",
+    on_change=aplicar_mensagem_pronta
+)
 
-    st.text_area(
-        "Mensagem",
-        key="mensagem_base",
-        placeholder="Digite sua mensagem aqui...",
-        height=220
-    )
+st.text_area(
+    "Mensagem",
+    key="mensagem_base",
+    placeholder="Digite sua mensagem aqui...",
+    height=220
+)
 
-with st.container(border=True):
-    st.markdown("### Prévia do envio")
-    col1, col2 = st.columns(2)
+st.markdown('</div>', unsafe_allow_html=True)
 
-    with col1:
-        st.metric("Número formatado", numero_formatado if numero_formatado else "Não informado")
+st.markdown('<div class="section-card">', unsafe_allow_html=True)
+st.markdown('<div class="section-title">Prévia do envio</div>', unsafe_allow_html=True)
+col1, col2 = st.columns(2)
 
-    with col2:
-        st.metric("Status", status_texto)
+with col1:
+    st.markdown(f"""
+    <div class="mini-card">
+        <div class="mini-label">Número formatado</div>
+        <div class="mini-value">{numero_formatado if numero_formatado else "Não informado"}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    preview_segura = mensagem_final if mensagem_final else "A mensagem aparecerá aqui."
-    st.text_area(
-        "Mensagem final (somente leitura)",
-        value=preview_segura,
-        height=190,
-        disabled=True
-    )
+with col2:
+    classe_status = "status-ok" if status_ok else "status-bad"
+    st.markdown(f"""
+    <div class="mini-card">
+        <div class="mini-label">Status</div>
+        <div class="mini-value {classe_status}">{status_texto}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
-        enviar = st.button("🚀 Enviar mensagem", use_container_width=True, type="primary")
-    with col_btn2:
-        st.button("🧹 Limpar campos", use_container_width=True, on_click=limpar_campos)
+preview_segura = mensagem_final if mensagem_final else "A mensagem aparecerá aqui."
+st.text_area(
+    "Mensagem final (somente leitura)",
+    value=preview_segura,
+    height=190,
+    disabled=True
+)
+
+col_btn1, col_btn2 = st.columns(2)
+with col_btn1:
+    enviar = st.button("🚀 Enviar mensagem", use_container_width=True)
+with col_btn2:
+    st.button("🧹 Limpar campos", use_container_width=True, on_click=limpar_campos)
+st.markdown('</div>', unsafe_allow_html=True)
 
 if enviar:
     if not st.session_state.nome.strip():
@@ -341,31 +456,32 @@ if enviar:
             except RuntimeError as e:
                 st.error(str(e))
 
-with st.container(border=True):
-    col_hist_1, col_hist_2 = st.columns([3, 1])
+st.markdown('<div class="section-card">', unsafe_allow_html=True)
+col_hist_1, col_hist_2 = st.columns([3, 1])
 
-    with col_hist_1:
-        st.markdown("### Histórico de envios")
+with col_hist_1:
+    st.markdown('<div class="section-title">Histórico de envios</div>', unsafe_allow_html=True)
 
-    with col_hist_2:
-        if st.button("🗑️ Limpar histórico", use_container_width=True):
-            if limpar_historico():
-                st.success("Histórico limpo com sucesso.")
-                st.rerun()
+with col_hist_2:
+    if st.button("🗑️ Limpar histórico", use_container_width=True):
+        if limpar_historico():
+            st.success("Histórico limpo com sucesso.")
+            st.rerun()
 
-    if historico_envios:
-        st.dataframe(
-            [
-                {
-                    "Data/Hora": item.get("data_hora", ""),
-                    "Nome": item.get("nome", ""),
-                    "Telefone": item.get("telefone", ""),
-                    "Status": item.get("status", "")
-                }
-                for item in historico_envios
-            ],
-            use_container_width=True,
-            hide_index=True
-        )
-    else:
-        st.info("Ainda não há envios registrados.")
+if historico_envios:
+    st.dataframe(
+        [
+            {
+                "Data/Hora": item.get("data_hora", ""),
+                "Nome": item.get("nome", ""),
+                "Telefone": item.get("telefone", ""),
+                "Status": item.get("status", "")
+            }
+            for item in historico_envios
+        ],
+        use_container_width=True,
+        hide_index=True
+    )
+else:
+    st.info("Ainda não há envios registrados.")
+st.markdown('</div>', unsafe_allow_html=True)
