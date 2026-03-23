@@ -10,10 +10,9 @@ st.set_page_config(
 
 API_URL = "https://wasenderapi.com/api/send-message"
 
-try:
-    API_TOKEN = st.secrets["WASENDER_TOKEN"]
-except Exception:
-    API_TOKEN = ""
+# TOKEN DIRETO (uso local)
+API_TOKEN = "70f1099889818e905a405f586bf151aef6a6706c5ca531ccf81030e607de37e6"
+
 
 if "nome" not in st.session_state:
     st.session_state.nome = ""
@@ -32,22 +31,8 @@ def limpar_campos():
 
 
 def normalizar_numero_br(numero: str) -> str:
-    """
-    Converte o número para o formato internacional do Brasil.
-    Exemplos aceitos:
-    88999999999
-    88 99999-9999
-    (88) 99999-9999
-    +55 88 99999-9999
-    5588999999999
-
-    Retorno:
-    +5588999999999
-    """
     numero = numero.strip()
-
     tem_mais = numero.startswith("+")
-
     digits = re.sub(r"\D", "", numero)
 
     if not digits:
@@ -66,12 +51,6 @@ def normalizar_numero_br(numero: str) -> str:
 
 
 def validar_numero_br(numero_formatado: str) -> bool:
-    """
-    Valida números brasileiros em formato internacional.
-    Exemplo válido:
-    +5588999999999
-    +558833333333
-    """
     padrao = r"^\+55\d{10,11}$"
     return bool(re.match(padrao, numero_formatado))
 
@@ -102,16 +81,9 @@ def enviar_mensagem(numero_destino: str, texto: str):
 
 
 st.title("📲 Envio de WhatsApp")
-st.write("Envie mensagens personalizadas para números do Brasil com prefixo +55 automático.")
+st.write("Envie mensagens para números do Brasil automaticamente com +55.")
 
-if not API_TOKEN:
-    st.warning("Configure o token da API em `st.secrets['WASENDER_TOKEN']` antes de enviar mensagens.")
-
-nome = st.text_input(
-    "Nome",
-    key="nome",
-    placeholder="Ex: Maria"
-)
+nome = st.text_input("Nome", key="nome", placeholder="Ex: João")
 
 numero_digitado = st.text_input(
     "Número do WhatsApp",
@@ -122,7 +94,7 @@ numero_digitado = st.text_input(
 mensagem_base = st.text_area(
     "Mensagem",
     key="mensagem_base",
-    placeholder="Digite sua mensagem aqui...",
+    placeholder="Digite sua mensagem...",
     height=180
 )
 
@@ -134,34 +106,21 @@ st.subheader("Prévia")
 col_a, col_b = st.columns(2)
 
 with col_a:
-    st.text_input(
-        "Número formatado",
-        value=numero_formatado if numero_formatado else "",
-        disabled=True
-    )
+    st.text_input("Número formatado", value=numero_formatado, disabled=True)
 
 with col_b:
-    status_numero = "Válido" if validar_numero_br(numero_formatado) else "Aguardando número válido"
-    st.text_input(
-        "Status do número",
-        value=status_numero,
-        disabled=True
-    )
+    status = "Válido" if validar_numero_br(numero_formatado) else "Inválido"
+    st.text_input("Status", value=status, disabled=True)
 
-st.text_area(
-    "Mensagem final",
-    value=mensagem_final if mensagem_final else "",
-    height=160,
-    disabled=True
-)
+st.text_area("Mensagem final", value=mensagem_final, height=150, disabled=True)
 
 col1, col2 = st.columns(2)
 
 with col1:
-    enviar = st.button("🚀 Enviar mensagem", use_container_width=True)
+    enviar = st.button("🚀 Enviar", use_container_width=True)
 
 with col2:
-    limpar = st.button("🧹 Limpar campos", use_container_width=True)
+    limpar = st.button("🧹 Limpar", use_container_width=True)
 
 if limpar:
     limpar_campos()
@@ -171,33 +130,21 @@ if enviar:
     if not nome.strip():
         st.error("Informe o nome.")
     elif not numero_digitado.strip():
-        st.error("Informe o número do WhatsApp.")
+        st.error("Informe o número.")
     elif not mensagem_base.strip():
         st.error("Digite a mensagem.")
-    elif not API_TOKEN:
-        st.error("Token da API não configurado.")
-    elif not numero_formatado:
-        st.error("Não foi possível formatar o número. Digite um telefone brasileiro válido.")
-    elif not validar_numero_br(numero_formatado):
-        st.error("Número inválido. Use um telefone do Brasil com DDD.")
+    elif not numero_formatado or not validar_numero_br(numero_formatado):
+        st.error("Número inválido.")
     else:
-        with st.spinner("Enviando mensagem..."):
+        with st.spinner("Enviando..."):
             try:
                 resposta = enviar_mensagem(numero_formatado, mensagem_final)
 
                 if resposta.status_code in (200, 201):
-                    st.success(f"Mensagem enviada com sucesso para {numero_formatado}.")
-                    try:
-                        retorno = resposta.json()
-                        st.json(retorno)
-                    except Exception:
-                        st.write(resposta.text)
+                    st.success(f"Mensagem enviada para {numero_formatado}")
                 else:
-                    st.error(f"Erro ao enviar. Status HTTP: {resposta.status_code}")
-                    try:
-                        st.json(resposta.json())
-                    except Exception:
-                        st.write(resposta.text)
+                    st.error(f"Erro: {resposta.status_code}")
+                    st.write(resposta.text)
 
-            except requests.exceptions.RequestException as e:
-                st.error(f"Erro de conexão com a API: {e}")
+            except Exception as e:
+                st.error(f"Erro de conexão: {e}")
