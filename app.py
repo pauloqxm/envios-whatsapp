@@ -216,7 +216,9 @@ status_ok = validar_numero_br(numero_formatado)
 historico_envios = carregar_historico()
 
 st.title("📲 Envio de WhatsApp")
-st.caption("Digite o nome, o telefone e escolha uma mensagem pronta ou escreva manualmente.")
+with st.container(border=True):
+    st.subheader("Comunicação rápida e organizada")
+    st.caption("Digite o nome, o telefone e escolha uma mensagem pronta ou escreva manualmente.")
 
 if st.session_state.notificacao_envio:
     notif = st.session_state.notificacao_envio
@@ -228,59 +230,58 @@ if st.session_state.notificacao_envio:
         st.warning(notif.get("mensagem", "Envio concluído com observações."))
     st.session_state.notificacao_envio = None
 
-st.markdown("### Dados do envio")
+with st.container(border=True):
+    st.markdown("### Dados do envio")
 
-st.text_input(
-    "Nome",
-    key="nome",
-    placeholder="Ex: João Silva"
-)
+    st.text_input(
+        "Nome",
+        key="nome",
+        placeholder="Ex: João Silva"
+    )
 
-st.text_input(
-    "Número do WhatsApp",
-    key="numero",
-    placeholder="Ex: 88 99999-9999"
-)
+    st.text_input(
+        "Número do WhatsApp",
+        key="numero",
+        placeholder="Ex: 88 99999-9999"
+    )
 
-st.selectbox(
-    "Mensagens prontas",
-    options=list(MENSAGENS_PRONTAS.keys()),
-    key="mensagem_escolhida",
-    on_change=aplicar_mensagem_pronta
-)
+    st.selectbox(
+        "Mensagens prontas",
+        options=list(MENSAGENS_PRONTAS.keys()),
+        key="mensagem_escolhida",
+        on_change=aplicar_mensagem_pronta
+    )
 
-st.text_area(
-    "Mensagem",
-    key="mensagem_base",
-    placeholder="Digite sua mensagem aqui...",
-    height=220
-)
+    st.text_area(
+        "Mensagem",
+        key="mensagem_base",
+        placeholder="Digite sua mensagem aqui...",
+        height=220
+    )
 
-st.markdown("### Prévia do envio")
+with st.container(border=True):
+    st.markdown("### Prévia do envio")
+    col1, col2 = st.columns(2)
 
-col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Número formatado", numero_formatado if numero_formatado else "Não informado")
 
-with col1:
-    st.metric("Número formatado", numero_formatado if numero_formatado else "Não informado")
+    with col2:
+        st.metric("Status", status_texto)
 
-with col2:
-    st.metric("Status", status_texto)
+    preview_segura = mensagem_final if mensagem_final else "A mensagem aparecerá aqui."
+    st.text_area(
+        "Mensagem final (somente leitura)",
+        value=preview_segura,
+        height=190,
+        disabled=True
+    )
 
-preview_segura = mensagem_final if mensagem_final else "A mensagem aparecerá aqui."
-st.text_area(
-    "Mensagem final (somente leitura)",
-    value=preview_segura,
-    height=190,
-    disabled=True
-)
-
-col_btn1, col_btn2 = st.columns(2)
-
-with col_btn1:
-    enviar = st.button("🚀 Enviar mensagem", use_container_width=True)
-
-with col_btn2:
-    st.button("🧹 Limpar campos", use_container_width=True, on_click=limpar_campos)
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        enviar = st.button("🚀 Enviar mensagem", use_container_width=True, type="primary")
+    with col_btn2:
+        st.button("🧹 Limpar campos", use_container_width=True, on_click=limpar_campos)
 
 if enviar:
     if not st.session_state.nome.strip():
@@ -340,30 +341,31 @@ if enviar:
             except RuntimeError as e:
                 st.error(str(e))
 
-col_hist_1, col_hist_2 = st.columns([3, 1])
+with st.container(border=True):
+    col_hist_1, col_hist_2 = st.columns([3, 1])
 
-with col_hist_1:
-    st.markdown("### Histórico de envios")
+    with col_hist_1:
+        st.markdown("### Histórico de envios")
 
-with col_hist_2:
-    if st.button("🗑️ Limpar histórico", use_container_width=True):
-        if limpar_historico():
-            st.success("Histórico limpo com sucesso.")
-            st.rerun()
+    with col_hist_2:
+        if st.button("🗑️ Limpar histórico", use_container_width=True):
+            if limpar_historico():
+                st.success("Histórico limpo com sucesso.")
+                st.rerun()
 
-if historico_envios:
-    st.dataframe(
-        [
-            {
-                "Data/Hora": item.get("data_hora", ""),
-                "Nome": item.get("nome", ""),
-                "Telefone": item.get("telefone", ""),
-                "Status": item.get("status", "")
-            }
-            for item in historico_envios
-        ],
-        use_container_width=True,
-        hide_index=True
-    )
-else:
-    st.info("Ainda não há envios registrados.")
+    if historico_envios:
+        st.dataframe(
+            [
+                {
+                    "Data/Hora": item.get("data_hora", ""),
+                    "Nome": item.get("nome", ""),
+                    "Telefone": item.get("telefone", ""),
+                    "Status": item.get("status", "")
+                }
+                for item in historico_envios
+            ],
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("Ainda não há envios registrados.")
