@@ -1,7 +1,12 @@
 import json
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:  # Python < 3.9
+    ZoneInfo = None
 
 import requests
 import streamlit as st
@@ -13,8 +18,12 @@ st.set_page_config(
 )
 
 API_URL = "https://wasenderapi.com/api/send-message"
-API_TOKEN = "70f1099889818e905a405f586bf151aef6a6706c5ca531ccf81030e607de37e6"
+API_TOKEN = os.getenv("WASENDER_API_TOKEN", "") or st.secrets.get("WASENDER_API_TOKEN", "")
 HISTORICO_ARQUIVO = "historico_envios.json"
+if ZoneInfo is not None:
+    BRASILIA_TZ = ZoneInfo("America/Sao_Paulo")
+else:
+    BRASILIA_TZ = timezone(timedelta(hours=-3))
 
 MENSAGENS_PRONTAS = {
     "Selecione uma mensagem pronta": "",
@@ -63,7 +72,7 @@ if "mensagem_escolhida" not in st.session_state:
 
 
 def agora_formatado():
-    return datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    return datetime.now(BRASILIA_TZ).strftime("%d/%m/%Y %H:%M:%S")
 
 
 def limpar_campos():
@@ -99,7 +108,8 @@ def normalizar_numero_br(numero: str) -> str:
 
 
 def validar_numero_br(numero_formatado: str) -> bool:
-    return bool(re.match(r"^\+55\d{10,11}$", numero_formatado))
+    # DDD válido (11-99) + número fixo (8 dígitos começando de 2-5) ou móvel (9 dígitos começando em 9)
+    return bool(re.match(r"^\+55([1-9][1-9])(9\d{8}|[2-5]\d{7})$", numero_formatado))
 
 
 def montar_mensagem(nome: str, mensagem_base: str) -> str:
@@ -113,6 +123,12 @@ def montar_mensagem(nome: str, mensagem_base: str) -> str:
 
 
 def enviar_mensagem(numero_destino: str, texto: str):
+    if not API_TOKEN:
+        raise RuntimeError(
+            "Token da API não configurado. Defina WASENDER_API_TOKEN no ambiente "
+            "ou em .streamlit/secrets.toml."
+        )
+
     headers = {
         "Authorization": f"Bearer {API_TOKEN}",
         "Content-Type": "application/json"
@@ -143,13 +159,17 @@ def carregar_historico():
         with open(HISTORICO_ARQUIVO, "r", encoding="utf-8") as f:
             dados = json.load(f)
             return dados if isinstance(dados, list) else []
-    except Exception:
+    except (json.JSONDecodeError, OSError) as e:
+        st.warning(f"Não foi possível carregar o histórico ({e}). Um novo histórico será iniciado.")
         return []
 
 
 def salvar_historico(historico):
-    with open(HISTORICO_ARQUIVO, "w", encoding="utf-8") as f:
-        json.dump(historico, f, ensure_ascii=False, indent=2)
+    try:
+        with open(HISTORICO_ARQUIVO, "w", encoding="utf-8") as f:
+            json.dump(historico, f, ensure_ascii=False, indent=2)
+    except OSError as e:
+        raise RuntimeError(f"Não foi possível salvar o histórico: {e}") from e
 
 
 def registrar_envio(nome, numero, mensagem, status_api):
@@ -163,11 +183,19 @@ def registrar_envio(nome, numero, mensagem, status_api):
         "mensagem": mensagem
     })
 
-    salvar_historico(historico)
+    try:
+        salvar_historico(historico)
+    except RuntimeError as e:
+        st.warning(str(e))
 
 
 def limpar_historico():
-    salvar_historico([])
+    try:
+        salvar_historico([])
+        return True
+    except RuntimeError as e:
+        st.error(str(e))
+        return False
 
 
 numero_formatado = normalizar_numero_br(st.session_state.numero)
@@ -349,9 +377,13 @@ with col2:
 
 st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
-st.markdown(f"""
-<div class="preview-box">{mensagem_final if mensagem_final else "A mensagem aparecerá aqui."}</div>
-""", unsafe_allow_html=True)
+preview_segura = mensagem_final if mensagem_final else "A mensagem aparecerá aqui."
+st.text_area(
+    "Mensagem final (somente leitura)",
+    value=preview_segura,
+    height=190,
+    disabled=True
+)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -407,10 +439,20 @@ if enviar:
                     historico_envios = carregar_historico()
 
                 else:
-                    st.error("Não foi possível concluir o envio. Verifique os dados e tente novamente.")
+                    msg_api = (
+                        retorno.get("message")
+                        or retorno.get("error")
+                        or (resposta.text[:200] if resposta.text else "")
+                    )
+                    st.error(
+                        f"Não foi possível concluir o envio (HTTP {resposta.status_code}). "
+                        f"{msg_api if msg_api else 'Verifique os dados e tente novamente.'}"
+                    )
 
             except requests.exceptions.RequestException as e:
                 st.error(f"Erro de conexão: {e}")
+            except RuntimeError as e:
+                st.error(str(e))
 
 st.markdown('<div class="section-card">', unsafe_allow_html=True)
 
@@ -421,9 +463,9 @@ with col_hist_1:
 
 with col_hist_2:
     if st.button("🗑️ Limpar histórico", use_container_width=True):
-        limpar_historico()
-        st.success("Histórico limpo com sucesso.")
-        st.rerun()
+        if limpar_historico():
+            st.success("Histórico limpo com sucesso.")
+            st.rerun()
 
 if historico_envios:
     st.dataframe(
