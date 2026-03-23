@@ -11,6 +11,39 @@ st.set_page_config(
 API_URL = "https://wasenderapi.com/api/send-message"
 API_TOKEN = "70f1099889818e905a405f586bf151aef6a6706c5ca531ccf81030e607de37e6"
 
+MENSAGENS_PRONTAS = {
+    "Selecione uma mensagem pronta": "",
+    "Mensagem 01": """Ficamos felizes em contar com você no III Seminário “Todas as Águas”!
+
+Vamos juntos mergulhar no tema Variabilidade Climática e Segurança Hídrica com grandes especialistas.
+
+🗓️ Data: 31/03 – a partir das 08h30 (chegue cedo!)
+📍 Local: FATEC Sertão Central (Quixeramobim)
+
+Será um momento rico de diálogo. Aguardamos você! 🌿""",
+    "Mensagem 02": """Que bom saber que você estará conosco no III Seminário “Todas as Águas”!
+Vamos juntos discutir a Variabilidade Climática e Segurança Hídrica com grandes especialistas.
+
+🗓️ Quando: 31/03, a partir das 08h30 (chegue cedo para o credenciamento!)
+📍 Onde: FATEC Sertão Central (Quixeramobim)
+
+Prepare-se para um momento rico de diálogo. Te esperamos lá! 🌿""",
+    "Mensagem 03": """Que alegria saber que você fará parte do III Seminário “Todas as Águas”!
+Juntos, vamos refletir sobre Variabilidade Climática e Segurança Hídrica ao lado de grandes especialistas.
+
+🗓️ Quando: 31/03, a partir das 08h30 (chegue cedinho para o credenciamento!)
+📍 Onde: FATEC Sertão Central (Quixeramobim)
+
+Prepare-se para um momento rico de diálogo. Te esperamos lá! 🌿""",
+    "Mensagem 04": """Que legal! Sua presença está confirmada no III Seminário “Todas as Águas”.
+Vamos bater um papo sobre Variabilidade Climática e Segurança Hídrica com quem realmente entende do assunto.
+
+🗓️ Quando: 31/03, a partir das 08h30 (já separa o café da manhã e vem!)
+📍 Onde: FATEC Sertão Central (Quixeramobim)
+
+Prepare-se para um encontro cheio de troca e boas ideias. Te esperamos por lá! 🌿"""
+}
+
 if "nome" not in st.session_state:
     st.session_state.nome = ""
 
@@ -20,11 +53,15 @@ if "numero" not in st.session_state:
 if "mensagem_base" not in st.session_state:
     st.session_state.mensagem_base = ""
 
+if "mensagem_escolhida" not in st.session_state:
+    st.session_state.mensagem_escolhida = "Selecione uma mensagem pronta"
+
 
 def limpar_campos():
     st.session_state.nome = ""
     st.session_state.numero = ""
     st.session_state.mensagem_base = ""
+    st.session_state.mensagem_escolhida = "Selecione uma mensagem pronta"
 
 
 def normalizar_numero_br(numero: str) -> str:
@@ -84,6 +121,11 @@ def status_numero_texto(numero_formatado: str) -> str:
     return "Número inválido"
 
 
+def aplicar_mensagem_pronta():
+    opcao = st.session_state.mensagem_escolhida
+    st.session_state.mensagem_base = MENSAGENS_PRONTAS.get(opcao, "")
+
+
 numero_formatado = normalizar_numero_br(st.session_state.numero)
 mensagem_final = montar_mensagem(st.session_state.nome, st.session_state.mensagem_base)
 status_texto = status_numero_texto(numero_formatado)
@@ -102,7 +144,7 @@ st.markdown("""
     }
 
     .hero-box {
-        background: linear-gradient(135deg, #1d4ed8 0%, #0f172a 100%);
+        background: linear-gradient(135deg, #16a34a 0%, #0f172a 100%);
         padding: 28px;
         border-radius: 24px;
         color: white;
@@ -184,7 +226,8 @@ st.markdown("""
     }
 
     div[data-baseweb="input"] > div,
-    div[data-baseweb="textarea"] > div {
+    div[data-baseweb="textarea"] > div,
+    div[data-baseweb="select"] > div {
         border-radius: 14px !important;
     }
 
@@ -201,7 +244,7 @@ st.markdown("""
 <div class="hero-box">
     <div class="hero-title">📲 Envio de WhatsApp</div>
     <div class="hero-subtitle">
-        Digite o nome, o telefone e a mensagem. O sistema formata automaticamente o número do Brasil com +55.
+        Digite o nome, o telefone e escolha uma mensagem pronta ou escreva manualmente.
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -221,11 +264,18 @@ st.text_input(
     placeholder="Ex: 88 99999-9999"
 )
 
+st.selectbox(
+    "Mensagens prontas",
+    options=list(MENSAGENS_PRONTAS.keys()),
+    key="mensagem_escolhida",
+    on_change=aplicar_mensagem_pronta
+)
+
 st.text_area(
     "Mensagem",
     key="mensagem_base",
     placeholder="Digite sua mensagem aqui...",
-    height=180
+    height=220
 )
 
 st.markdown('</div>', unsafe_allow_html=True)
