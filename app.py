@@ -1,4 +1,8 @@
+import json
+import os
 import re
+from datetime import datetime
+
 import requests
 import streamlit as st
 
@@ -10,6 +14,7 @@ st.set_page_config(
 
 API_URL = "https://wasenderapi.com/api/send-message"
 API_TOKEN = "70f1099889818e905a405f586bf151aef6a6706c5ca531ccf81030e607de37e6"
+HISTORICO_ARQUIVO = "historico_envios.json"
 
 MENSAGENS_PRONTAS = {
     "Selecione uma mensagem pronta": "",
@@ -57,11 +62,20 @@ if "mensagem_escolhida" not in st.session_state:
     st.session_state.mensagem_escolhida = "Selecione uma mensagem pronta"
 
 
+def agora_formatado():
+    return datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+
 def limpar_campos():
     st.session_state.nome = ""
     st.session_state.numero = ""
     st.session_state.mensagem_base = ""
     st.session_state.mensagem_escolhida = "Selecione uma mensagem pronta"
+
+
+def aplicar_mensagem_pronta():
+    opcao = st.session_state.mensagem_escolhida
+    st.session_state.mensagem_base = MENSAGENS_PRONTAS.get(opcao, "")
 
 
 def normalizar_numero_br(numero: str) -> str:
@@ -121,15 +135,46 @@ def status_numero_texto(numero_formatado: str) -> str:
     return "Número inválido"
 
 
-def aplicar_mensagem_pronta():
-    opcao = st.session_state.mensagem_escolhida
-    st.session_state.mensagem_base = MENSAGENS_PRONTAS.get(opcao, "")
+def carregar_historico():
+    if not os.path.exists(HISTORICO_ARQUIVO):
+        return []
+
+    try:
+        with open(HISTORICO_ARQUIVO, "r", encoding="utf-8") as f:
+            dados = json.load(f)
+            return dados if isinstance(dados, list) else []
+    except Exception:
+        return []
+
+
+def salvar_historico(historico):
+    with open(HISTORICO_ARQUIVO, "w", encoding="utf-8") as f:
+        json.dump(historico, f, ensure_ascii=False, indent=2)
+
+
+def registrar_envio(nome, numero, mensagem, status_api):
+    historico = carregar_historico()
+
+    historico.insert(0, {
+        "data_hora": agora_formatado(),
+        "nome": nome,
+        "telefone": numero,
+        "status": status_api,
+        "mensagem": mensagem
+    })
+
+    salvar_historico(historico)
+
+
+def limpar_historico():
+    salvar_historico([])
 
 
 numero_formatado = normalizar_numero_br(st.session_state.numero)
 mensagem_final = montar_mensagem(st.session_state.nome, st.session_state.mensagem_base)
 status_texto = status_numero_texto(numero_formatado)
 status_ok = validar_numero_br(numero_formatado)
+historico_envios = carregar_historico()
 
 st.markdown("""
 <style>
@@ -140,7 +185,7 @@ st.markdown("""
     .block-container {
         padding-top: 2rem;
         padding-bottom: 2rem;
-        max-width: 820px;
+        max-width: 900px;
     }
 
     .hero-box {
@@ -336,18 +381,65 @@ if enviar:
             try:
                 resposta = enviar_mensagem(numero_formatado, mensagem_final)
 
-                if resposta.status_code in (200, 201):
+                try:
+                    retorno = resposta.json()
+                except Exception:
+                    retorno = {}
+
+                if resposta.status_code in (200, 201) and retorno.get("success") is True:
+                    status_api = retorno.get("data", {}).get("status", "enviado")
+                    registrar_envio(
+                        nome=st.session_state.nome.strip(),
+                        numero=numero_formatado,
+                        mensagem=mensagem_final,
+                        status_api=status_api
+                    )
+
                     st.success(f"Mensagem enviada com sucesso para {numero_formatado}.")
-                    try:
-                        st.json(resposta.json())
-                    except Exception:
-                        st.write(resposta.text)
+
+                    if status_api == "in_progress":
+                        st.info("Status atual: mensagem em processamento/envio.")
+                    elif status_api == "sent":
+                        st.success("Status atual: mensagem enviada.")
+                    else:
+                        st.info(f"Status atual: {status_api}")
+
+                    historico_envios = carregar_historico()
+
                 else:
-                    st.error(f"Erro ao enviar. Status: {resposta.status_code}")
-                    try:
-                        st.json(resposta.json())
-                    except Exception:
-                        st.write(resposta.text)
+                    st.error("Não foi possível concluir o envio. Verifique os dados e tente novamente.")
 
             except requests.exceptions.RequestException as e:
                 st.error(f"Erro de conexão: {e}")
+
+st.markdown('<div class="section-card">', unsafe_allow_html=True)
+
+col_hist_1, col_hist_2 = st.columns([3, 1])
+
+with col_hist_1:
+    st.markdown('<div class="section-title">Histórico de envios</div>', unsafe_allow_html=True)
+
+with col_hist_2:
+    if st.button("🗑️ Limpar histórico", use_container_width=True):
+        limpar_historico()
+        st.success("Histórico limpo com sucesso.")
+        st.rerun()
+
+if historico_envios:
+    st.dataframe(
+        [
+            {
+                "Data/Hora": item.get("data_hora", ""),
+                "Nome": item.get("nome", ""),
+                "Telefone": item.get("telefone", ""),
+                "Status": item.get("status", "")
+            }
+            for item in historico_envios
+        ],
+        use_container_width=True,
+        hide_index=True
+    )
+else:
+    st.info("Ainda não há envios registrados.")
+
+st.markdown('</div>', unsafe_allow_html=True)
