@@ -21,58 +21,90 @@ API_URL = "https://wasenderapi.com/api/send-message"
 API_TOKEN = os.getenv("WASENDER_API_TOKEN", "") or st.secrets.get("WASENDER_API_TOKEN", "")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HISTORICO_ARQUIVO = os.path.join(BASE_DIR, "historico_envios.json")
+
 if ZoneInfo is not None:
     BRASILIA_TZ = ZoneInfo("America/Sao_Paulo")
 else:
     BRASILIA_TZ = timezone(timedelta(hours=-3))
 
-LEMBRETES_EVENTO = {
+MENSAGENS_INSCRICAO = {
     "Selecione uma mensagem pronta": "",
+    "Mensagem 01": """Ficamos felizes em contar com você no III Seminário “Todas as Águas”!
 
-    "Lembrete 01": """Passando pra te lembrar 👀
+Vamos juntos mergulhar no tema Variabilidade Climática e Segurança Hídrica com grandes especialistas.
 
-O III Seminário “Todas as Águas” já é amanhã!
+🗓️ Data: 31/03, a partir das 08h30
+📍 Local: FATEC Sertão Central (Quixeramobim)
 
-🗓️ 31/03, a partir das 08h30
-📍 FATEC Sertão Central (Quixeramobim)
+Será um momento rico de diálogo. Aguardamos você! 🌿""",
+    "Mensagem 02": """Que bom saber que você estará conosco no III Seminário “Todas as Águas”!
 
-Chega cedo pra garantir teu credenciamento. Te esperamos! 🌿""",
+Vamos juntos discutir a Variabilidade Climática e Segurança Hídrica com grandes especialistas.
 
-    "Lembrete 02": """Falta pouco! 🚀
+🗓️ Quando: 31/03, a partir das 08h30
+📍 Onde: FATEC Sertão Central (Quixeramobim)
 
-O III Seminário “Todas as Águas” acontece amanhã e queremos te ver por lá.
+Prepare-se para um momento rico de diálogo. Te esperamos lá! 🌿""",
+    "Mensagem 03": """Que alegria saber que você fará parte do III Seminário “Todas as Águas”!
 
-🗓️ 31/03, a partir das 08h30
-📍 FATEC Sertão Central (Quixeramobim)
+Juntos, vamos refletir sobre Variabilidade Climática e Segurança Hídrica ao lado de grandes especialistas.
 
-Vai ser um momento importante de troca. Não perde! 🌿""",
+🗓️ Quando: 31/03, a partir das 08h30
+📍 Onde: FATEC Sertão Central (Quixeramobim)
 
-    "Lembrete 03": """Ei, só passando pra não deixar você esquecer 👇
+Prepare-se para um momento rico de diálogo. Te esperamos lá! 🌿""",
+    "Mensagem 04": """Que legal! Sua presença está confirmada no III Seminário “Todas as Águas”.
+
+Vamos bater um papo sobre Variabilidade Climática e Segurança Hídrica com quem realmente entende do assunto.
+
+🗓️ Quando: 31/03, a partir das 08h30
+📍 Onde: FATEC Sertão Central (Quixeramobim)
+
+Prepare-se para um encontro cheio de troca e boas ideias. Te esperamos por lá! 🌿"""
+}
+
+MENSAGENS_LEMBRETE = {
+    "Selecione uma mensagem pronta": "",
+    "Lembrete 01": """Só passando pra te lembrar 👀
 
 O III Seminário “Todas as Águas” é amanhã!
 
 🗓️ 31/03, a partir das 08h30
 📍 FATEC Sertão Central (Quixeramobim)
 
-Se organiza e cola com a gente. Vai valer a pena! 🌿""",
-
-    "Lembrete 04": """Tá chegando! ⏰
+Chega cedo pra garantir teu credenciamento. Te esperamos! 🌿""",
+    "Lembrete 02": """Falta pouco! 🚀
 
 Amanhã tem o III Seminário “Todas as Águas”.
 
 🗓️ 31/03, a partir das 08h30
 📍 FATEC Sertão Central (Quixeramobim)
 
-Prepara tua agenda e vem participar desse momento especial. 🌿""",
+Se organiza e vem com a gente. Vai valer a pena! 🌿""",
+    "Lembrete 03": """Ei 👇
 
-    "Lembrete 05": """Já deixa separado na agenda 📌
+Não esquece: amanhã tem o III Seminário “Todas as Águas”.
+
+🗓️ 31/03, a partir das 08h30
+📍 FATEC Sertão Central (Quixeramobim)
+
+Nos vemos lá! 🌿""",
+    "Lembrete 04": """Tá chegando! ⏰
 
 Amanhã acontece o III Seminário “Todas as Águas”.
 
 🗓️ 31/03, a partir das 08h30
 📍 FATEC Sertão Central (Quixeramobim)
 
-Nos vemos lá! 🌿"""
+Prepara tua agenda e participa com a gente. 🌿""",
+    "Lembrete 05": """Já deixa salvo aí 📌
+
+Amanhã tem o III Seminário “Todas as Águas”.
+
+🗓️ 31/03, a partir das 08h30
+📍 FATEC Sertão Central (Quixeramobim)
+
+Te esperamos! 🌿"""
 }
 
 if "nome" not in st.session_state:
@@ -84,8 +116,11 @@ if "numero" not in st.session_state:
 if "mensagem_base" not in st.session_state:
     st.session_state.mensagem_base = ""
 
-if "mensagem_escolhida" not in st.session_state:
-    st.session_state.mensagem_escolhida = "Selecione uma mensagem pronta"
+if "mensagem_escolhida_inscricao" not in st.session_state:
+    st.session_state.mensagem_escolhida_inscricao = "Selecione uma mensagem pronta"
+
+if "mensagem_escolhida_lembrete" not in st.session_state:
+    st.session_state.mensagem_escolhida_lembrete = "Selecione uma mensagem pronta"
 
 if "limpar_apos_envio_ok" not in st.session_state:
     st.session_state.limpar_apos_envio_ok = False
@@ -102,12 +137,20 @@ def limpar_campos():
     st.session_state.nome = ""
     st.session_state.numero = ""
     st.session_state.mensagem_base = ""
-    st.session_state.mensagem_escolhida = "Selecione uma mensagem pronta"
+    st.session_state.mensagem_escolhida_inscricao = "Selecione uma mensagem pronta"
+    st.session_state.mensagem_escolhida_lembrete = "Selecione uma mensagem pronta"
 
 
-def aplicar_mensagem_pronta():
-    opcao = st.session_state.mensagem_escolhida
-    st.session_state.mensagem_base = MENSAGENS_PRONTAS.get(opcao, "")
+def aplicar_mensagem_inscricao():
+    opcao = st.session_state.mensagem_escolhida_inscricao
+    st.session_state.mensagem_base = MENSAGENS_INSCRICAO.get(opcao, "")
+    st.session_state.mensagem_escolhida_lembrete = "Selecione uma mensagem pronta"
+
+
+def aplicar_mensagem_lembrete():
+    opcao = st.session_state.mensagem_escolhida_lembrete
+    st.session_state.mensagem_base = MENSAGENS_LEMBRETE.get(opcao, "")
+    st.session_state.mensagem_escolhida_inscricao = "Selecione uma mensagem pronta"
 
 
 def normalizar_numero_br(numero: str) -> str:
@@ -131,7 +174,6 @@ def normalizar_numero_br(numero: str) -> str:
 
 
 def validar_numero_br(numero_formatado: str) -> bool:
-    # DDD válido (11-99) + número fixo (8 dígitos começando de 2-5) ou móvel (9 dígitos começando em 9)
     return bool(re.match(r"^\+55([1-9][1-9])(9\d{8}|[2-5]\d{7})$", numero_formatado))
 
 
@@ -269,7 +311,7 @@ st.markdown("""
         background: #111827;
         border: 1px solid rgba(255,255,255,0.08);
         border-radius: 22px;
-        padding: 1px;
+        padding: 18px;
         margin-bottom: 18px;
         box-shadow: 0 8px 24px rgba(0,0,0,0.18);
     }
@@ -332,7 +374,7 @@ st.markdown("""
 <div class="hero-box">
     <div class="hero-title">📲 Envio de WhatsApp</div>
     <div class="hero-subtitle">
-        Digite o nome, o telefone e escolha uma mensagem pronta ou escreva manualmente.
+        Digite o nome, o telefone e escolha a mensagem em uma das abas abaixo.
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -362,12 +404,23 @@ st.text_input(
     placeholder="Ex: 88 99999-9999"
 )
 
-st.selectbox(
-    "Mensagens prontas",
-    options=list(MENSAGENS_PRONTAS.keys()),
-    key="mensagem_escolhida",
-    on_change=aplicar_mensagem_pronta
-)
+aba1, aba2 = st.tabs(["Inscrição / Confirmação", "Lembretes"])
+
+with aba1:
+    st.selectbox(
+        "Mensagens prontas de inscrição",
+        options=list(MENSAGENS_INSCRICAO.keys()),
+        key="mensagem_escolhida_inscricao",
+        on_change=aplicar_mensagem_inscricao
+    )
+
+with aba2:
+    st.selectbox(
+        "Mensagens prontas de lembrete",
+        options=list(MENSAGENS_LEMBRETE.keys()),
+        key="mensagem_escolhida_lembrete",
+        on_change=aplicar_mensagem_lembrete
+    )
 
 st.text_area(
     "Mensagem",
@@ -380,6 +433,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="section-card">', unsafe_allow_html=True)
 st.markdown('<div class="section-title">Prévia do envio</div>', unsafe_allow_html=True)
+
 col1, col2 = st.columns(2)
 
 with col1:
@@ -412,6 +466,7 @@ with col_btn1:
     enviar = st.button("🚀 Enviar mensagem", use_container_width=True)
 with col_btn2:
     st.button("🧹 Limpar campos", use_container_width=True, on_click=limpar_campos)
+
 st.markdown('</div>', unsafe_allow_html=True)
 
 if enviar:
@@ -473,6 +528,7 @@ if enviar:
                 st.error(str(e))
 
 st.markdown('<div class="section-card">', unsafe_allow_html=True)
+
 col_hist_1, col_hist_2 = st.columns([3, 1])
 
 with col_hist_1:
@@ -500,4 +556,5 @@ if historico_envios:
     )
 else:
     st.info("Ainda não há envios registrados.")
+
 st.markdown('</div>', unsafe_allow_html=True)
