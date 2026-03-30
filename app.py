@@ -26,37 +26,53 @@ if ZoneInfo is not None:
 else:
     BRASILIA_TZ = timezone(timedelta(hours=-3))
 
-MENSAGENS_PRONTAS = {
+LEMBRETES_EVENTO = {
     "Selecione uma mensagem pronta": "",
-    "Mensagem 01": """Ficamos felizes em contar com você no III Seminário “Todas as Águas”!
 
-Vamos juntos mergulhar no tema Variabilidade Climática e Segurança Hídrica com grandes especialistas.
+    "Lembrete 01": """Passando pra te lembrar 👀
 
-🗓️ Data: 31/03 – a partir das 08h30 (chegue cedo!)
-📍 Local: FATEC Sertão Central (Quixeramobim)
+O III Seminário “Todas as Águas” já é amanhã!
 
-Será um momento rico de diálogo. Aguardamos você! 🌿""",
-    "Mensagem 02": """Que bom saber que você estará conosco no III Seminário “Todas as Águas”!
-Vamos juntos discutir a Variabilidade Climática e Segurança Hídrica com grandes especialistas.
+🗓️ 31/03, a partir das 08h30
+📍 FATEC Sertão Central (Quixeramobim)
 
-🗓️ Quando: 31/03, a partir das 08h30 (chegue cedo para o credenciamento!)
-📍 Onde: FATEC Sertão Central (Quixeramobim)
+Chega cedo pra garantir teu credenciamento. Te esperamos! 🌿""",
 
-Prepare-se para um momento rico de diálogo. Te esperamos lá! 🌿""",
-    "Mensagem 03": """Que alegria saber que você fará parte do III Seminário “Todas as Águas”!
-Juntos, vamos refletir sobre Variabilidade Climática e Segurança Hídrica ao lado de grandes especialistas.
+    "Lembrete 02": """Falta pouco! 🚀
 
-🗓️ Quando: 31/03, a partir das 08h30 (chegue cedinho para o credenciamento!)
-📍 Onde: FATEC Sertão Central (Quixeramobim)
+O III Seminário “Todas as Águas” acontece amanhã e queremos te ver por lá.
 
-Prepare-se para um momento rico de diálogo. Te esperamos lá! 🌿""",
-    "Mensagem 04": """Que legal! Sua presença está confirmada no III Seminário “Todas as Águas”.
-Vamos bater um papo sobre Variabilidade Climática e Segurança Hídrica com quem realmente entende do assunto.
+🗓️ 31/03, a partir das 08h30
+📍 FATEC Sertão Central (Quixeramobim)
 
-🗓️ Quando: 31/03, a partir das 08h30 (já separa o café da manhã e vem!)
-📍 Onde: FATEC Sertão Central (Quixeramobim)
+Vai ser um momento importante de troca. Não perde! 🌿""",
 
-Prepare-se para um encontro cheio de troca e boas ideias. Te esperamos por lá! 🌿"""
+    "Lembrete 03": """Ei, só passando pra não deixar você esquecer 👇
+
+O III Seminário “Todas as Águas” é amanhã!
+
+🗓️ 31/03, a partir das 08h30
+📍 FATEC Sertão Central (Quixeramobim)
+
+Se organiza e cola com a gente. Vai valer a pena! 🌿""",
+
+    "Lembrete 04": """Tá chegando! ⏰
+
+Amanhã tem o III Seminário “Todas as Águas”.
+
+🗓️ 31/03, a partir das 08h30
+📍 FATEC Sertão Central (Quixeramobim)
+
+Prepara tua agenda e vem participar desse momento especial. 🌿""",
+
+    "Lembrete 05": """Já deixa separado na agenda 📌
+
+Amanhã acontece o III Seminário “Todas as Águas”.
+
+🗓️ 31/03, a partir das 08h30
+📍 FATEC Sertão Central (Quixeramobim)
+
+Nos vemos lá! 🌿"""
 }
 
 if "nome" not in st.session_state:
