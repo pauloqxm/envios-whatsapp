@@ -122,6 +122,9 @@ if "mensagem_escolhida_inscricao" not in st.session_state:
 if "mensagem_escolhida_lembrete" not in st.session_state:
     st.session_state.mensagem_escolhida_lembrete = "Selecione uma mensagem pronta"
 
+if "aba_ativa" not in st.session_state:
+    st.session_state.aba_ativa = "Inscrição / Confirmação"
+
 if "limpar_apos_envio_ok" not in st.session_state:
     st.session_state.limpar_apos_envio_ok = False
 
@@ -143,12 +146,14 @@ def limpar_campos():
 
 def aplicar_mensagem_inscricao():
     opcao = st.session_state.mensagem_escolhida_inscricao
+    st.session_state.aba_ativa = "Inscrição / Confirmação"
     st.session_state.mensagem_base = MENSAGENS_INSCRICAO.get(opcao, "")
     st.session_state.mensagem_escolhida_lembrete = "Selecione uma mensagem pronta"
 
 
 def aplicar_mensagem_lembrete():
     opcao = st.session_state.mensagem_escolhida_lembrete
+    st.session_state.aba_ativa = "Lembretes"
     st.session_state.mensagem_base = MENSAGENS_LEMBRETE.get(opcao, "")
     st.session_state.mensagem_escolhida_inscricao = "Selecione uma mensagem pronta"
 
@@ -374,7 +379,7 @@ st.markdown("""
 <div class="hero-box">
     <div class="hero-title">📲 Envio de WhatsApp</div>
     <div class="hero-subtitle">
-        Digite o nome, o telefone e escolha a mensagem em uma das abas abaixo.
+        Digite o nome, o telefone e escolha a mensagem em uma das opções abaixo.
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -404,9 +409,13 @@ st.text_input(
     placeholder="Ex: 88 99999-9999"
 )
 
-aba1, aba2 = st.tabs(["Inscrição / Confirmação", "Lembretes"])
+st.segmented_control(
+    "Tipo de mensagem",
+    options=["Inscrição / Confirmação", "Lembretes"],
+    key="aba_ativa"
+)
 
-with aba1:
+if st.session_state.aba_ativa == "Inscrição / Confirmação":
     st.selectbox(
         "Mensagens prontas de inscrição",
         options=list(MENSAGENS_INSCRICAO.keys()),
@@ -414,7 +423,7 @@ with aba1:
         on_change=aplicar_mensagem_inscricao
     )
 
-with aba2:
+elif st.session_state.aba_ativa == "Lembretes":
     st.selectbox(
         "Mensagens prontas de lembrete",
         options=list(MENSAGENS_LEMBRETE.keys()),
