@@ -26,6 +26,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HISTORICO_ARQUIVO = os.path.join(BASE_DIR, "historico_envios.json")
 ARQUIVO_CSV_PADRAO = os.path.join(BASE_DIR, "nomes e contatos.csv")
 ARQUIVO_PROGRESSO_LOTE = os.path.join(BASE_DIR, "progresso_lote.json")
+ARQUIVO_ENVIADOS_SUCESSO = os.path.join(BASE_DIR, "enviados_sucesso_lote.json")
 
 if ZoneInfo is not None:
     BRASILIA_TZ = ZoneInfo("America/Sao_Paulo")
@@ -206,6 +207,11 @@ def montar_mensagem(nome: str, mensagem_base: str) -> str:
     return mensagem_base
 
 
+def gerar_chave_contato(nome: str, numero_formatado: str) -> str:
+    nome_limpo = re.sub(r"\s+", " ", str(nome).strip().lower())
+    return f"{nome_limpo}|{numero_formatado}"
+
+
 def enviar_mensagem(numero_destino: str, texto: str):
     if not API_TOKEN:
         raise RuntimeError(
@@ -312,6 +318,38 @@ def limpar_progresso_lote():
         return False
 
 
+def carregar_enviados_sucesso():
+    if not os.path.exists(ARQUIVO_ENVIADOS_SUCESSO):
+        return set()
+
+    try:
+        with open(ARQUIVO_ENVIADOS_SUCESSO, "r", encoding="utf-8") as f:
+            dados = json.load(f)
+            if isinstance(dados, list):
+                return set(str(x) for x in dados)
+            return set()
+    except (json.JSONDecodeError, OSError):
+        return set()
+
+
+def salvar_enviados_sucesso(chaves_enviadas):
+    try:
+        with open(ARQUIVO_ENVIADOS_SUCESSO, "w", encoding="utf-8") as f:
+            json.dump(sorted(list(chaves_enviadas)), f, ensure_ascii=False, indent=2)
+    except OSError as e:
+        raise RuntimeError(f"Não foi possível salvar os contatos enviados com sucesso: {e}") from e
+
+
+def limpar_enviados_sucesso():
+    try:
+        if os.path.exists(ARQUIVO_ENVIADOS_SUCESSO):
+            os.remove(ARQUIVO_ENVIADOS_SUCESSO)
+        return True
+    except OSError as e:
+        st.error(f"Não foi possível limpar a lista de enviados: {e}")
+        return False
+
+
 def carregar_contatos_csv(arquivo_origem):
     if arquivo_origem is None:
         return pd.DataFrame()
@@ -386,8 +424,9 @@ def carregar_contatos_csv(arquivo_origem):
 
     df["numero_formatado"] = df["whatsapp"].apply(normalizar_numero_br)
     df["numero_valido"] = df["numero_formatado"].apply(validar_numero_br)
+    df["chave_contato"] = df.apply(lambda row: gerar_chave_contato(row["nome"], row["numero_formatado"]), axis=1)
 
-    return df[["ordem", "nome", "whatsapp", "numero_formatado", "numero_valido"]]
+    return df[["ordem", "nome", "whatsapp", "numero_formatado", "numero_valido", "chave_contato"]]
 
 
 def extrair_retry_after(response, retorno_json):
@@ -413,13 +452,18 @@ def extrair_retry_after(response, retorno_json):
     return 60
 
 
-def preparar_contatos_para_lote(df_contatos, limite_envios):
+def preparar_contatos_para_lote(df_contatos, limite_envios, ignorar_ja_enviados=True):
     contatos_validos = df_contatos[df_contatos["numero_valido"]].copy()
+    enviados_sucesso = carregar_enviados_sucesso()
+
+    if ignorar_ja_enviados and enviados_sucesso:
+        contatos_validos = contatos_validos[~contatos_validos["chave_contato"].isin(enviados_sucesso)].copy()
+
+    contatos_validos = contatos_validos.reset_index(drop=True)
 
     if limite_envios > 0:
         contatos_validos = contatos_validos.head(limite_envios)
 
-    contatos_validos = contatos_validos.reset_index(drop=True)
     return contatos_validos
 
 
@@ -467,13 +511,17 @@ def enviar_lote_contatos(
     retomar=False
 ):
     resultados = []
-    contatos_validos = preparar_contatos_para_lote(df_contatos, limite_envios)
+    contatos_validos = preparar_contatos_para_lote(
+        df_contatos=df_contatos,
+        limite_envios=limite_envios,
+        ignorar_ja_enviados=True
+    )
 
     if contatos_validos.empty or not mensagens_disponiveis:
         return {
             "resultados": resultados,
             "status_execucao": "vazio",
-            "mensagem": "Nenhum contato válido ou nenhuma mensagem disponível."
+            "mensagem": "Nenhum contato pendente válido ou nenhuma mensagem disponível."
         }
 
     mensagens_rotativas = mensagens_disponiveis[:]
@@ -499,9 +547,10 @@ def enviar_lote_contatos(
         return {
             "resultados": resultados,
             "status_execucao": "concluido",
-            "mensagem": "O lote já havia sido concluído."
+            "mensagem": "Não há contatos pendentes para esta rodada."
         }
 
+    enviados_sucesso = carregar_enviados_sucesso()
     progresso_barra = st.progress(inicio / len(contatos_validos) if len(contatos_validos) else 0)
     status_box = st.empty()
     total = len(contatos_validos)
@@ -565,6 +614,10 @@ def enviar_lote_contatos(
                     "Resultado": "Enviado",
                     "Status API": status_api
                 })
+
+                enviados_sucesso.add(row["chave_contato"])
+                salvar_enviados_sucesso(enviados_sucesso)
+
             else:
                 msg_api = (
                     retorno.get("message")
@@ -638,6 +691,18 @@ status_texto = status_numero_texto(numero_formatado)
 status_ok = validar_numero_br(numero_formatado)
 historico_envios = carregar_historico()
 progresso_lote = carregar_progresso_lote()
+enviados_sucesso = carregar_enviados_sucesso()
+
+total_contatos_csv = len(df_contatos) if not df_contatos.empty else 0
+total_validos_csv = int(df_contatos["numero_valido"].sum()) if not df_contatos.empty else 0
+total_ja_enviados = 0
+total_pendentes = 0
+
+if not df_contatos.empty:
+    total_ja_enviados = int(df_contatos["chave_contato"].isin(enviados_sucesso).sum())
+    total_pendentes = int(
+        df_contatos[(df_contatos["numero_valido"]) & (~df_contatos["chave_contato"].isin(enviados_sucesso))].shape[0]
+    )
 
 st.markdown("""
 <style>
@@ -740,7 +805,7 @@ st.markdown("""
 <div class="hero-box">
     <div class="hero-title">📲 Envio de WhatsApp</div>
     <div class="hero-subtitle">
-        Envio individual e automático em lote com alternância de mensagens, pausa em 429 e retomada automática.
+        Envio individual e automático em lote com continuidade real entre rodadas.
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -911,12 +976,12 @@ with aba_lote:
 
     col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
     with col_cfg1:
-        limite_padrao = min(30, len(df_contatos)) if not df_contatos.empty else 30
+        limite_padrao = min(30, total_pendentes) if total_pendentes > 0 else 30
         limite_envios = st.number_input(
             "Qtd. máxima nesta rodada",
             min_value=1,
             max_value=1000,
-            value=limite_padrao,
+            value=limite_padrao if limite_padrao > 0 else 1,
             step=1
         )
     with col_cfg2:
@@ -954,29 +1019,30 @@ with aba_lote:
     if df_contatos.empty:
         st.error("Não foi possível carregar o arquivo CSV de contatos.")
     else:
-        total = len(df_contatos)
-        validos = int(df_contatos["numero_valido"].sum())
-        invalidos = total - validos
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Contatos no CSV", total_contatos_csv)
+        c2.metric("Válidos", total_validos_csv)
+        c3.metric("Já enviados", total_ja_enviados)
+        c4.metric("Pendentes", total_pendentes)
 
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Contatos no CSV", total)
-        c2.metric("Válidos", validos)
-        c3.metric("Inválidos", invalidos)
+        df_exibicao = df_contatos.copy()
+        df_exibicao["ja_enviado"] = df_exibicao["chave_contato"].isin(enviados_sucesso)
 
         st.dataframe(
-            df_contatos.rename(columns={
+            df_exibicao.rename(columns={
                 "ordem": "Nº",
                 "nome": "Nome",
                 "whatsapp": "WhatsApp original",
                 "numero_formatado": "WhatsApp formatado",
-                "numero_valido": "Válido"
-            }),
+                "numero_valido": "Válido",
+                "ja_enviado": "Já enviado"
+            })[["Nº", "Nome", "WhatsApp original", "WhatsApp formatado", "Válido", "Já enviado"]],
             use_container_width=True,
             hide_index=True,
             height=320
         )
 
-        col_lote_1, col_lote_2, col_lote_3 = st.columns(3)
+        col_lote_1, col_lote_2, col_lote_3, col_lote_4 = st.columns(4)
 
         with col_lote_1:
             iniciar_lote = st.button("🚀 Iniciar envio automático", use_container_width=True)
@@ -985,11 +1051,19 @@ with aba_lote:
             retomar_lote = st.button("⏯️ Retomar lote pausado", use_container_width=True)
 
         with col_lote_3:
-            resetar_lote = st.button("🧹 Limpar progresso do lote", use_container_width=True)
+            resetar_lote = st.button("🧹 Limpar progresso", use_container_width=True)
+
+        with col_lote_4:
+            resetar_enviados = st.button("♻️ Zerar enviados", use_container_width=True)
 
         if resetar_lote:
             if limpar_progresso_lote():
                 st.success("Progresso do lote apagado com sucesso.")
+                st.rerun()
+
+        if resetar_enviados:
+            if limpar_enviados_sucesso():
+                st.success("Lista de contatos já enviados apagada com sucesso.")
                 st.rerun()
 
         if iniciar_lote:
@@ -997,6 +1071,8 @@ with aba_lote:
                 st.error("Ajuste o intervalo mínimo e máximo antes de iniciar.")
             elif not mensagens_lote:
                 st.error("Nenhuma mensagem disponível para a aba selecionada.")
+            elif total_pendentes <= 0:
+                st.warning("Não há contatos pendentes. Todos os válidos já foram enviados com sucesso.")
             else:
                 resultado_execucao = enviar_lote_contatos(
                     df_contatos=df_contatos,
