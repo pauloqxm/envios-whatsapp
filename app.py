@@ -24,7 +24,8 @@ API_URL = "https://wasenderapi.com/api/send-message"
 API_TOKEN = os.getenv("WASENDER_API_TOKEN", "") or st.secrets.get("WASENDER_API_TOKEN", "")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HISTORICO_ARQUIVO = os.path.join(BASE_DIR, "historico_envios.json")
-ARQUIVO_CSV_PADRAO = os.path.join("/mnt/data", "nomes e contatos.csv")
+ARQUIVO_CSV_PADRAO = os.path.join(BASE_DIR, "nomes e contatos.csv")
+ARQUIVO_PROGRESSO_LOTE = os.path.join(BASE_DIR, "progresso_lote.json")
 
 if ZoneInfo is not None:
     BRASILIA_TZ = ZoneInfo("America/Sao_Paulo")
@@ -129,6 +130,9 @@ if "mensagem_escolhida_lembrete" not in st.session_state:
 if "aba_ativa" not in st.session_state:
     st.session_state.aba_ativa = "Inscrição / Confirmação"
 
+if "aba_ativa_lote" not in st.session_state:
+    st.session_state.aba_ativa_lote = "Inscrição / Confirmação"
+
 if "limpar_apos_envio_ok" not in st.session_state:
     st.session_state.limpar_apos_envio_ok = False
 
@@ -162,10 +166,10 @@ def aplicar_mensagem_lembrete():
     st.session_state.mensagem_escolhida_inscricao = "Selecione uma mensagem pronta"
 
 
-def obter_mensagens_aba_ativa():
-    if st.session_state.aba_ativa == "Lembretes":
-        return [v for k, v in MENSAGENS_LEMBRETE.items() if k != "Selecione uma mensagem pronta" and v.strip()]
-    return [v for k, v in MENSAGENS_INSCRICAO.items() if k != "Selecione uma mensagem pronta" and v.strip()]
+def obter_mensagens_lote_por_tipo(tipo_mensagem: str):
+    if tipo_mensagem == "Lembretes":
+        return [v for k, v in MENSAGENS_LEMBRETE.items() if k != "Selecione uma mensagem pronta" and str(v).strip()]
+    return [v for k, v in MENSAGENS_INSCRICAO.items() if k != "Selecione uma mensagem pronta" and str(v).strip()]
 
 
 def normalizar_numero_br(numero: str) -> str:
@@ -278,25 +282,94 @@ def limpar_historico():
         return False
 
 
-def carregar_contatos_csv(caminho_csv: str):
-    if not os.path.exists(caminho_csv):
+def salvar_progresso_lote(dados):
+    try:
+        with open(ARQUIVO_PROGRESSO_LOTE, "w", encoding="utf-8") as f:
+            json.dump(dados, f, ensure_ascii=False, indent=2)
+    except OSError as e:
+        raise RuntimeError(f"Não foi possível salvar o progresso do lote: {e}") from e
+
+
+def carregar_progresso_lote():
+    if not os.path.exists(ARQUIVO_PROGRESSO_LOTE):
+        return None
+
+    try:
+        with open(ARQUIVO_PROGRESSO_LOTE, "r", encoding="utf-8") as f:
+            dados = json.load(f)
+            return dados if isinstance(dados, dict) else None
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def limpar_progresso_lote():
+    try:
+        if os.path.exists(ARQUIVO_PROGRESSO_LOTE):
+            os.remove(ARQUIVO_PROGRESSO_LOTE)
+        return True
+    except OSError as e:
+        st.error(f"Não foi possível limpar o progresso do lote: {e}")
+        return False
+
+
+def carregar_contatos_csv(arquivo_origem):
+    if arquivo_origem is None:
         return pd.DataFrame()
 
     try:
-        df = pd.read_csv(caminho_csv)
+        if isinstance(arquivo_origem, str):
+            if not os.path.exists(arquivo_origem):
+                return pd.DataFrame()
+
+            df = pd.read_csv(
+                arquivo_origem,
+                sep=None,
+                engine="python",
+                encoding="utf-8-sig"
+            )
+        else:
+            arquivo_origem.seek(0)
+            df = pd.read_csv(
+                arquivo_origem,
+                sep=None,
+                engine="python",
+                encoding="utf-8-sig"
+            )
+
     except Exception:
-        return pd.DataFrame()
+        try:
+            if not isinstance(arquivo_origem, str):
+                arquivo_origem.seek(0)
+
+            df = pd.read_csv(
+                arquivo_origem,
+                sep=";",
+                encoding="utf-8-sig"
+            )
+        except Exception:
+            try:
+                if not isinstance(arquivo_origem, str):
+                    arquivo_origem.seek(0)
+
+                df = pd.read_csv(
+                    arquivo_origem,
+                    sep=",",
+                    encoding="latin1"
+                )
+            except Exception:
+                return pd.DataFrame()
 
     df.columns = [str(c).strip() for c in df.columns]
 
     mapa_colunas = {}
     for col in df.columns:
-        col_limpa = re.sub(r"\s+", " ", col.strip().lower())
+        col_limpa = re.sub(r"\s+", " ", str(col).strip().lower())
+
         if "nome" in col_limpa:
             mapa_colunas[col] = "nome"
         elif "whatsapp" in col_limpa or "telefone" in col_limpa or "celular" in col_limpa:
             mapa_colunas[col] = "whatsapp"
-        elif col_limpa in ("nº", "n", "numero", "número"):
+        elif col_limpa in ("nº", "n°", "n", "numero", "número", "ordem"):
             mapa_colunas[col] = "ordem"
 
     df = df.rename(columns=mapa_colunas)
@@ -307,36 +380,138 @@ def carregar_contatos_csv(caminho_csv: str):
     if "ordem" not in df.columns:
         df["ordem"] = range(1, len(df) + 1)
 
-    df["nome"] = df["nome"].astype(str).str.strip()
-    df["whatsapp"] = df["whatsapp"].astype(str).str.strip()
+    df["nome"] = df["nome"].fillna("").astype(str).str.strip()
+    df["whatsapp"] = df["whatsapp"].fillna("").astype(str).str.strip()
+    df = df[(df["nome"] != "") & (df["whatsapp"] != "")].copy()
+
     df["numero_formatado"] = df["whatsapp"].apply(normalizar_numero_br)
     df["numero_valido"] = df["numero_formatado"].apply(validar_numero_br)
 
     return df[["ordem", "nome", "whatsapp", "numero_formatado", "numero_valido"]]
 
 
-def enviar_lote_contatos(df_contatos, mensagens_disponiveis, intervalo_min, intervalo_max, limite_envios):
-    resultados = []
+def extrair_retry_after(response, retorno_json):
+    retry_after = None
+
+    if response is not None:
+        retry_after = response.headers.get("Retry-After")
+
+    if not retry_after and isinstance(retorno_json, dict):
+        retry_after = (
+            retorno_json.get("retry_after")
+            or retorno_json.get("retryAfter")
+            or retorno_json.get("data", {}).get("retry_after")
+            or retorno_json.get("data", {}).get("retryAfter")
+        )
+
+    try:
+        if retry_after is not None:
+            return int(float(retry_after))
+    except Exception:
+        pass
+
+    return 60
+
+
+def preparar_contatos_para_lote(df_contatos, limite_envios):
     contatos_validos = df_contatos[df_contatos["numero_valido"]].copy()
 
     if limite_envios > 0:
         contatos_validos = contatos_validos.head(limite_envios)
 
-    if contatos_validos.empty:
-        return resultados
+    contatos_validos = contatos_validos.reset_index(drop=True)
+    return contatos_validos
 
-    if not mensagens_disponiveis:
-        return resultados
 
-    progresso = st.progress(0)
+def iniciar_progresso_lote(tipo_mensagem, limite_envios, total_contatos):
+    progresso = {
+        "status": "em_andamento",
+        "tipo_mensagem": tipo_mensagem,
+        "limite_envios": limite_envios,
+        "total_contatos": total_contatos,
+        "ultimo_indice_processado": -1,
+        "pausado_em": None,
+        "motivo_pausa": None,
+        "retry_after_segundos": None,
+        "data_inicio": agora_formatado()
+    }
+    salvar_progresso_lote(progresso)
+    return progresso
+
+
+def marcar_lote_pausado(progresso, ultimo_indice_processado, motivo_pausa, retry_after_segundos):
+    progresso["status"] = "pausado"
+    progresso["ultimo_indice_processado"] = ultimo_indice_processado
+    progresso["pausado_em"] = agora_formatado()
+    progresso["motivo_pausa"] = motivo_pausa
+    progresso["retry_after_segundos"] = retry_after_segundos
+    salvar_progresso_lote(progresso)
+
+
+def marcar_lote_concluido(progresso, ultimo_indice_processado):
+    progresso["status"] = "concluido"
+    progresso["ultimo_indice_processado"] = ultimo_indice_processado
+    progresso["data_fim"] = agora_formatado()
+    progresso["motivo_pausa"] = None
+    progresso["retry_after_segundos"] = None
+    salvar_progresso_lote(progresso)
+
+
+def enviar_lote_contatos(
+    df_contatos,
+    mensagens_disponiveis,
+    intervalo_min,
+    intervalo_max,
+    limite_envios,
+    tipo_mensagem,
+    retomar=False
+):
+    resultados = []
+    contatos_validos = preparar_contatos_para_lote(df_contatos, limite_envios)
+
+    if contatos_validos.empty or not mensagens_disponiveis:
+        return {
+            "resultados": resultados,
+            "status_execucao": "vazio",
+            "mensagem": "Nenhum contato válido ou nenhuma mensagem disponível."
+        }
+
+    mensagens_rotativas = mensagens_disponiveis[:]
+    random.shuffle(mensagens_rotativas)
+
+    progresso_salvo = carregar_progresso_lote()
+
+    if retomar and progresso_salvo and progresso_salvo.get("status") == "pausado":
+        inicio = int(progresso_salvo.get("ultimo_indice_processado", -1)) + 1
+        progresso = progresso_salvo
+        progresso["status"] = "em_andamento"
+        salvar_progresso_lote(progresso)
+    else:
+        inicio = 0
+        progresso = iniciar_progresso_lote(
+            tipo_mensagem=tipo_mensagem,
+            limite_envios=limite_envios,
+            total_contatos=len(contatos_validos)
+        )
+
+    if inicio >= len(contatos_validos):
+        marcar_lote_concluido(progresso, len(contatos_validos) - 1)
+        return {
+            "resultados": resultados,
+            "status_execucao": "concluido",
+            "mensagem": "O lote já havia sido concluído."
+        }
+
+    progresso_barra = st.progress(inicio / len(contatos_validos) if len(contatos_validos) else 0)
     status_box = st.empty()
     total = len(contatos_validos)
 
-    for idx, (_, row) in enumerate(contatos_validos.iterrows(), start=1):
-        mensagem_base = mensagens_disponiveis[(idx - 1) % len(mensagens_disponiveis)]
+    for idx in range(inicio, total):
+        row = contatos_validos.iloc[idx]
+        mensagem_base = mensagens_rotativas[idx % len(mensagens_rotativas)]
         mensagem_final = montar_mensagem(row["nome"], mensagem_base)
 
-        status_box.info(f"Enviando {idx}/{total} para {row['nome']}...")
+        status_box.info(f"Enviando {idx + 1}/{total} para {row['nome']}...")
 
         try:
             resposta = enviar_mensagem(row["numero_formatado"], mensagem_final)
@@ -345,6 +520,36 @@ def enviar_lote_contatos(df_contatos, mensagens_disponiveis, intervalo_min, inte
                 retorno = resposta.json()
             except Exception:
                 retorno = {}
+
+            if resposta.status_code == 429:
+                retry_after = extrair_retry_after(resposta, retorno)
+                resultados.append({
+                    "Nome": row["nome"],
+                    "Telefone": row["numero_formatado"],
+                    "Resultado": "Pausado por 429",
+                    "Status API": f"Rate limit detectado. Tente novamente após {retry_after}s."
+                })
+
+                marcar_lote_pausado(
+                    progresso=progresso,
+                    ultimo_indice_processado=idx - 1,
+                    motivo_pausa="HTTP 429 / Too Many Requests",
+                    retry_after_segundos=retry_after
+                )
+
+                status_box.error(
+                    f"API limitou o envio com HTTP 429. "
+                    f"O lote foi pausado no contato {idx + 1}. "
+                    f"Retome depois de pelo menos {retry_after} segundos."
+                )
+
+                progresso_barra.progress(idx / total if total else 0)
+
+                return {
+                    "resultados": resultados,
+                    "status_execucao": "pausado_429",
+                    "mensagem": f"Lote pausado por 429. Retome após {retry_after} segundos."
+                }
 
             if resposta.status_code in (200, 201) and retorno.get("success") is True:
                 status_api = retorno.get("data", {}).get("status", "enviado")
@@ -373,6 +578,9 @@ def enviar_lote_contatos(df_contatos, mensagens_disponiveis, intervalo_min, inte
                     "Status API": msg_api
                 })
 
+            progresso["ultimo_indice_processado"] = idx
+            salvar_progresso_lote(progresso)
+
         except requests.exceptions.RequestException as e:
             resultados.append({
                 "Nome": row["nome"],
@@ -380,6 +588,10 @@ def enviar_lote_contatos(df_contatos, mensagens_disponiveis, intervalo_min, inte
                 "Resultado": "Erro de conexão",
                 "Status API": str(e)
             })
+
+            progresso["ultimo_indice_processado"] = idx
+            salvar_progresso_lote(progresso)
+
         except RuntimeError as e:
             resultados.append({
                 "Nome": row["nome"],
@@ -388,27 +600,44 @@ def enviar_lote_contatos(df_contatos, mensagens_disponiveis, intervalo_min, inte
                 "Status API": str(e)
             })
 
-        progresso.progress(idx / total)
+            progresso["ultimo_indice_processado"] = idx
+            salvar_progresso_lote(progresso)
 
-        if idx < total:
+        progresso_barra.progress((idx + 1) / total)
+
+        if idx < total - 1:
             espera = random.uniform(intervalo_min, intervalo_max)
             status_box.warning(f"Aguardando {espera:.1f}s antes do próximo envio...")
             time.sleep(espera)
 
+    marcar_lote_concluido(progresso, total - 1)
     status_box.success("Envio em lote finalizado.")
-    return resultados
+    return {
+        "resultados": resultados,
+        "status_execucao": "concluido",
+        "mensagem": "Envio em lote finalizado."
+    }
 
 
 if st.session_state.limpar_apos_envio_ok:
     limpar_campos()
     st.session_state.limpar_apos_envio_ok = False
 
+arquivo_csv_upload = st.file_uploader(
+    "Carregue o CSV de contatos",
+    type=["csv"],
+    help="Envie um arquivo com colunas como Nº, Nome e WhatsApp."
+)
+
+origem_csv = arquivo_csv_upload if arquivo_csv_upload is not None else ARQUIVO_CSV_PADRAO
+df_contatos = carregar_contatos_csv(origem_csv)
+
 numero_formatado = normalizar_numero_br(st.session_state.numero)
 mensagem_final = montar_mensagem(st.session_state.nome, st.session_state.mensagem_base)
 status_texto = status_numero_texto(numero_formatado)
 status_ok = validar_numero_br(numero_formatado)
 historico_envios = carregar_historico()
-df_contatos = carregar_contatos_csv(ARQUIVO_CSV_PADRAO)
+progresso_lote = carregar_progresso_lote()
 
 st.markdown("""
 <style>
@@ -511,7 +740,7 @@ st.markdown("""
 <div class="hero-box">
     <div class="hero-title">📲 Envio de WhatsApp</div>
     <div class="hero-subtitle">
-        Envio individual e automático em lote com alternância de mensagens e intervalo variável.
+        Envio individual e automático em lote com alternância de mensagens, pausa em 429 e retomada automática.
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -667,31 +896,63 @@ with aba_lote:
     st.markdown('<div class="section-card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">Envio automático em lote</div>', unsafe_allow_html=True)
 
+    if arquivo_csv_upload is not None:
+        st.success(f"Arquivo carregado: {arquivo_csv_upload.name}")
+    else:
+        st.info("Usando arquivo local nomes e contatos.csv, se existir na pasta do app.")
+
     st.segmented_control(
         "Tipo de mensagem para o lote",
         options=["Inscrição / Confirmação", "Lembretes"],
         key="aba_ativa_lote"
     )
 
-    mensagens_lote = (
-        [v for k, v in MENSAGENS_LEMBRETE.items() if k != "Selecione uma mensagem pronta" and v.strip()]
-        if st.session_state.get("aba_ativa_lote", "Inscrição / Confirmação") == "Lembretes"
-        else [v for k, v in MENSAGENS_INSCRICAO.items() if k != "Selecione uma mensagem pronta" and v.strip()]
-    )
+    mensagens_lote = obter_mensagens_lote_por_tipo(st.session_state.aba_ativa_lote)
 
     col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
     with col_cfg1:
-        limite_envios = st.number_input("Qtd. máxima nesta rodada", min_value=1, max_value=1000, value=min(30, len(df_contatos)) if not df_contatos.empty else 30, step=1)
+        limite_padrao = min(30, len(df_contatos)) if not df_contatos.empty else 30
+        limite_envios = st.number_input(
+            "Qtd. máxima nesta rodada",
+            min_value=1,
+            max_value=1000,
+            value=limite_padrao,
+            step=1
+        )
     with col_cfg2:
-        intervalo_min = st.number_input("Intervalo mínimo (seg)", min_value=3, max_value=300, value=8, step=1)
+        intervalo_min = st.number_input(
+            "Intervalo mínimo (seg)",
+            min_value=3,
+            max_value=300,
+            value=8,
+            step=1
+        )
     with col_cfg3:
-        intervalo_max = st.number_input("Intervalo máximo (seg)", min_value=3, max_value=600, value=18, step=1)
+        intervalo_max = st.number_input(
+            "Intervalo máximo (seg)",
+            min_value=3,
+            max_value=600,
+            value=18,
+            step=1
+        )
+
+    if progresso_lote:
+        if progresso_lote.get("status") == "pausado":
+            st.warning(
+                f"Lote pausado. Último índice processado: {progresso_lote.get('ultimo_indice_processado', -1)}. "
+                f"Motivo: {progresso_lote.get('motivo_pausa', 'não informado')}. "
+                f"Retry after: {progresso_lote.get('retry_after_segundos', 'n/d')}s."
+            )
+        elif progresso_lote.get("status") == "concluido":
+            st.success("Há um registro de lote concluído salvo.")
+        elif progresso_lote.get("status") == "em_andamento":
+            st.info("Há um progresso de lote em andamento salvo.")
 
     if intervalo_max < intervalo_min:
         st.warning("O intervalo máximo não pode ser menor que o mínimo.")
 
     if df_contatos.empty:
-        st.error("Não foi possível carregar o arquivo nomes e contatos.csv.")
+        st.error("Não foi possível carregar o arquivo CSV de contatos.")
     else:
         total = len(df_contatos)
         validos = int(df_contatos["numero_valido"].sum())
@@ -715,7 +976,21 @@ with aba_lote:
             height=320
         )
 
-        iniciar_lote = st.button("🚀 Iniciar envio automático", use_container_width=True)
+        col_lote_1, col_lote_2, col_lote_3 = st.columns(3)
+
+        with col_lote_1:
+            iniciar_lote = st.button("🚀 Iniciar envio automático", use_container_width=True)
+
+        with col_lote_2:
+            retomar_lote = st.button("⏯️ Retomar lote pausado", use_container_width=True)
+
+        with col_lote_3:
+            resetar_lote = st.button("🧹 Limpar progresso do lote", use_container_width=True)
+
+        if resetar_lote:
+            if limpar_progresso_lote():
+                st.success("Progresso do lote apagado com sucesso.")
+                st.rerun()
 
         if iniciar_lote:
             if intervalo_max < intervalo_min:
@@ -723,23 +998,80 @@ with aba_lote:
             elif not mensagens_lote:
                 st.error("Nenhuma mensagem disponível para a aba selecionada.")
             else:
-                resultados = enviar_lote_contatos(
+                resultado_execucao = enviar_lote_contatos(
                     df_contatos=df_contatos,
                     mensagens_disponiveis=mensagens_lote,
                     intervalo_min=float(intervalo_min),
                     intervalo_max=float(intervalo_max),
-                    limite_envios=int(limite_envios)
+                    limite_envios=int(limite_envios),
+                    tipo_mensagem=st.session_state.aba_ativa_lote,
+                    retomar=False
                 )
+
+                resultados = resultado_execucao["resultados"]
 
                 if resultados:
                     df_resultados = pd.DataFrame(resultados)
                     enviados = int((df_resultados["Resultado"] == "Enviado").sum())
                     erros = len(df_resultados) - enviados
 
-                    st.success(f"Lote finalizado. Enviados: {enviados}. Erros: {erros}.")
+                    if resultado_execucao["status_execucao"] == "pausado_429":
+                        st.warning(
+                            f"Lote pausado por limite da API. "
+                            f"Enviados até agora nesta execução: {enviados}. "
+                            f"Ocorrências com erro/pausa: {erros}."
+                        )
+                    else:
+                        st.success(f"Lote finalizado. Enviados: {enviados}. Erros: {erros}.")
+
                     st.dataframe(df_resultados, use_container_width=True, hide_index=True)
                 else:
-                    st.warning("Nenhum envio foi realizado.")
+                    st.info(resultado_execucao["mensagem"])
+
+        if retomar_lote:
+            progresso_atual = carregar_progresso_lote()
+
+            if not progresso_atual or progresso_atual.get("status") != "pausado":
+                st.error("Não existe lote pausado para retomar.")
+            else:
+                tipo_salvo = progresso_atual.get("tipo_mensagem", st.session_state.aba_ativa_lote)
+                mensagens_retomada = obter_mensagens_lote_por_tipo(tipo_salvo)
+
+                retry_after = progresso_atual.get("retry_after_segundos")
+                if retry_after:
+                    st.info(f"O último 429 sugeriu aguardar ao menos {retry_after} segundos antes da retomada.")
+
+                resultado_execucao = enviar_lote_contatos(
+                    df_contatos=df_contatos,
+                    mensagens_disponiveis=mensagens_retomada,
+                    intervalo_min=float(intervalo_min),
+                    intervalo_max=float(intervalo_max),
+                    limite_envios=int(progresso_atual.get("limite_envios", limite_envios)),
+                    tipo_mensagem=tipo_salvo,
+                    retomar=True
+                )
+
+                resultados = resultado_execucao["resultados"]
+
+                if resultados:
+                    df_resultados = pd.DataFrame(resultados)
+                    enviados = int((df_resultados["Resultado"] == "Enviado").sum())
+                    erros = len(df_resultados) - enviados
+
+                    if resultado_execucao["status_execucao"] == "pausado_429":
+                        st.warning(
+                            f"Lote retomado, mas pausado novamente por 429. "
+                            f"Enviados nesta retomada: {enviados}. "
+                            f"Ocorrências com erro/pausa: {erros}."
+                        )
+                    else:
+                        st.success(
+                            f"Retomada concluída. Enviados nesta retomada: {enviados}. Erros: {erros}."
+                        )
+
+                    st.dataframe(df_resultados, use_container_width=True, hide_index=True)
+                else:
+                    st.info(resultado_execucao["mensagem"])
 
     st.markdown('</div>', unsafe_allow_html=True)
 
