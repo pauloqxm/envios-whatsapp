@@ -41,6 +41,7 @@ MENSAGENS_INSCRICAO = {
 Sua presença fez toda a diferença nesse momento de troca sobre Variabilidade Climática e Segurança Hídrica.
 
 📄 Para gerar seu certificado de participação, acesse:
+
 https://meu-certificado.up.railway.app/
 
 Ao entrar, selecione o evento e informe o e-mail ou telefone utilizado na inscrição.
@@ -52,6 +53,7 @@ Esperamos você nos próximos encontros! 🌿""",
 Foi um dia importante de diálogo e construção sobre segurança hídrica, e você fez parte disso.
 
 📄 Gere seu certificado de participação aqui:
+
 https://meu-certificado.up.railway.app/
 
 Ao acessar, selecione o evento e utilize o e-mail ou telefone cadastrado na inscrição.
@@ -63,6 +65,7 @@ Seguimos juntos! 🌿""",
 Sua participação fortalece o debate sobre Variabilidade Climática e Segurança Hídrica.
 
 📄 Para emitir seu certificado de participação, acesse:
+
 https://meu-certificado.up.railway.app/
 
 Depois, selecione o evento e informe o e-mail ou telefone usado na inscrição.
@@ -74,6 +77,7 @@ Até a próxima! 🌿""",
 Momentos como esse só acontecem com a participação de pessoas como você.
 
 📄 Garanta seu certificado de participação no link:
+
 https://meu-certificado.up.railway.app/
 
 Ao acessar, selecione o evento e preencha com o e-mail ou telefone cadastrado na inscrição.
