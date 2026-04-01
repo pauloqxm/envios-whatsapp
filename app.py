@@ -35,38 +35,50 @@ else:
 
 MENSAGENS_INSCRICAO = {
     "Selecione uma mensagem pronta": "",
-    "Mensagem 01": """Ficamos felizes em contar com você no III Seminário “Todas as Águas”!
 
-Vamos juntos mergulhar no tema Variabilidade Climática e Segurança Hídrica com grandes especialistas.
+    "Mensagem 01": """Muito obrigado por participar do III Seminário “Todas as Águas”! 💧
 
-🗓️ Data: 31/03, a partir das 08h30
-📍 Local: FATEC Sertão Central (Quixeramobim)
+Sua presença fez toda a diferença nesse momento de troca sobre Variabilidade Climática e Segurança Hídrica.
 
-Será um momento rico de diálogo. Aguardamos você! 🌿""",
-    "Mensagem 02": """Que bom saber que você estará conosco no III Seminário “Todas as Águas”!
+📄 Para gerar seu certificado de participação, acesse:
+https://meu-certificado.up.railway.app/
 
-Vamos juntos discutir a Variabilidade Climática e Segurança Hídrica com grandes especialistas.
+Ao entrar, selecione o evento e informe o e-mail ou telefone utilizado na inscrição.
 
-🗓️ Quando: 31/03, a partir das 08h30
-📍 Onde: FATEC Sertão Central (Quixeramobim)
+Esperamos você nos próximos encontros! 🌿""",
 
-Prepare-se para um momento rico de diálogo. Te esperamos lá! 🌿""",
-    "Mensagem 03": """Que alegria saber que você fará parte do III Seminário “Todas as Águas”!
+    "Mensagem 02": """Agradecemos sua presença no III Seminário “Todas as Águas”! 💧
 
-Juntos, vamos refletir sobre Variabilidade Climática e Segurança Hídrica ao lado de grandes especialistas.
+Foi um dia importante de diálogo e construção sobre segurança hídrica, e você fez parte disso.
 
-🗓️ Quando: 31/03, a partir das 08h30
-📍 Onde: FATEC Sertão Central (Quixeramobim)
+📄 Gere seu certificado de participação aqui:
+https://meu-certificado.up.railway.app/
 
-Prepare-se para um momento rico de diálogo. Te esperamos lá! 🌿""",
-    "Mensagem 04": """Que legal! Sua presença está confirmada no III Seminário “Todas as Águas”.
+Ao acessar, selecione o evento e utilize o e-mail ou telefone cadastrado na inscrição.
 
-Vamos bater um papo sobre Variabilidade Climática e Segurança Hídrica com quem realmente entende do assunto.
+Seguimos juntos! 🌿""",
 
-🗓️ Quando: 31/03, a partir das 08h30
-📍 Onde: FATEC Sertão Central (Quixeramobim)
+    "Mensagem 03": """Que bom contar com você no III Seminário “Todas as Águas”! 💧
 
-Prepare-se para um encontro cheio de troca e boas ideias. Te esperamos por lá! 🌿"""
+Sua participação fortalece o debate sobre Variabilidade Climática e Segurança Hídrica.
+
+📄 Para emitir seu certificado de participação, acesse:
+https://meu-certificado.up.railway.app/
+
+Depois, selecione o evento e informe o e-mail ou telefone usado na inscrição.
+
+Até a próxima! 🌿""",
+
+    "Mensagem 04": """Obrigado por estar presente no III Seminário “Todas as Águas”! 💧
+
+Momentos como esse só acontecem com a participação de pessoas como você.
+
+📄 Garanta seu certificado de participação no link:
+https://meu-certificado.up.railway.app/
+
+Ao acessar, selecione o evento e preencha com o e-mail ou telefone cadastrado na inscrição.
+
+Nos vemos em breve! 🌿"""
 }
 
 MENSAGENS_LEMBRETE = {
